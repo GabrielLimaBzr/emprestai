@@ -95,3 +95,33 @@ export async function updateEmprestimoStatus(id: string, status: Emprestimo['sta
   revalidatePath(`/emprestimos/${id}`)
   revalidatePath('/dashboard')
 }
+
+export async function updateEmprestimo(
+  id: string,
+  values: {
+    valor_principal?: number
+    taxa_juros_mensal?: number
+    data_inicio?: string
+    data_vencimento?: string
+    modalidade?: 'juros_mensais' | 'sem_juros'
+    descricao?: string
+    garantia?: string
+    status?: Emprestimo['status']
+  }
+) {
+  const supabase = createClient()
+  const { error } = await supabase.from('emprestimos').update(values).eq('id', id)
+  if (error) throw error
+  revalidatePath('/emprestimos')
+  revalidatePath(`/emprestimos/${id}`)
+  revalidatePath('/dashboard')
+}
+
+export async function deleteEmprestimo(id: string) {
+  const supabase = createClient()
+  // parcelas e transacoes têm ON DELETE CASCADE, são removidas automaticamente
+  const { error } = await supabase.from('emprestimos').delete().eq('id', id)
+  if (error) throw error
+  revalidatePath('/emprestimos')
+  revalidatePath('/dashboard')
+}

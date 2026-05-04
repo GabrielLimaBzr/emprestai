@@ -137,6 +137,90 @@ export async function estornarPagamento(parcelaId: string, emprestimoId: string)
   revalidatePath('/dashboard')
 }
 
+export async function updateParcela(
+  parcelaId: string,
+  emprestimoId: string,
+  values: {
+    valor_esperado?: number
+    data_vencimento?: string
+    status?: Parcela['status']
+    observacoes?: string
+  }
+) {
+  const supabase = createClient()
+  const { error } = await supabase.from('parcelas').update(values).eq('id', parcelaId)
+  if (error) throw error
+  revalidatePath(`/emprestimos/${emprestimoId}`)
+  revalidatePath('/parcelas')
+  revalidatePath('/dashboard')
+}
+
+export async function deleteParcela(parcelaId: string, emprestimoId: string) {
+  const supabase = createClient()
+  const { error } = await supabase.from('parcelas').delete().eq('id', parcelaId)
+  if (error) throw error
+  revalidatePath(`/emprestimos/${emprestimoId}`)
+  revalidatePath('/parcelas')
+}
+
+export async function regenerarParcelasPendentes(emprestimoId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autenticado')
+
+  const { data: emp } = await supabase
+    .from('emprestimos')
+    .select('*')
+    .eq('id', emprestimoId)
+    .single()
+  if (!emp) throw new Error('Empréstimo não encontrado')
+
+  // Remove parcelas não pagas (pendente, atrasado) e isentas
+  await supabase
+    .from('parcelas')
+    .delete()
+    .eq('emprestimo_id', emprestimoId)
+    .in('status', ['pendente', 'atrasado', 'isento'])
+
+  // Descobre o próximo numero baseado nas pagas que restaram
+  const { data: pagas } = await supabase
+    .from('parcelas')
+    .select('numero')
+    .eq('emprestimo_id', emprestimoId)
+    .eq('status', 'pago')
+    .order('numero', { ascending: false })
+    .limit(1)
+
+  const proximoNumero = pagas && pagas.length > 0 ? pagas[0].numero + 1 : 1
+
+  // Gera parcelas do início ao vencimento e filtra as que ainda não foram pagas
+  const { gerarParcelas } = await import('@/utils/juros')
+  const todasParcelas = gerarParcelas(
+    emp.valor_principal,
+    emp.taxa_juros_mensal,
+    emp.data_inicio,
+    emp.data_vencimento,
+    emp.modalidade
+  )
+
+  const novasParcelas = todasParcelas
+    .filter(p => p.numero >= proximoNumero)
+    .map(p => ({
+      ...p,
+      emprestimo_id: emprestimoId,
+      user_id: user.id,
+    }))
+
+  if (novasParcelas.length > 0) {
+    const { error } = await supabase.from('parcelas').insert(novasParcelas)
+    if (error) throw error
+  }
+
+  revalidatePath(`/emprestimos/${emprestimoId}`)
+  revalidatePath('/parcelas')
+  revalidatePath('/dashboard')
+}
+
 export async function sincronizarStatusParcelas() {
   const supabase = createClient()
   const hoje = new Date().toISOString().split('T')[0]
