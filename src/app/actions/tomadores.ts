@@ -4,11 +4,20 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Tomador } from '@/types'
 
+async function getUser() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autenticado')
+  return user
+}
+
 export async function getTomadores() {
   const supabase = createClient()
+  const user = await getUser()
   const { data, error } = await supabase
     .from('tomadores')
     .select('*')
+    .eq('user_id', user.id)
     .order('nome')
 
   if (error) throw error
@@ -17,10 +26,12 @@ export async function getTomadores() {
 
 export async function getTomadorById(id: string) {
   const supabase = createClient()
+  const user = await getUser()
   const { data, error } = await supabase
     .from('tomadores')
     .select('*')
     .eq('id', id)
+    .eq('user_id', user.id)
     .single()
 
   if (error) throw error
@@ -29,8 +40,7 @@ export async function getTomadorById(id: string) {
 
 export async function createTomador(values: Omit<Tomador, 'id' | 'user_id' | 'criado_em' | 'atualizado_em'>) {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
+  const user = await getUser()
 
   const { data, error } = await supabase
     .from('tomadores')
@@ -45,10 +55,12 @@ export async function createTomador(values: Omit<Tomador, 'id' | 'user_id' | 'cr
 
 export async function updateTomador(id: string, values: Partial<Tomador>) {
   const supabase = createClient()
+  const user = await getUser()
   const { data, error } = await supabase
     .from('tomadores')
     .update(values)
     .eq('id', id)
+    .eq('user_id', user.id)
     .select()
     .single()
 
@@ -60,7 +72,13 @@ export async function updateTomador(id: string, values: Partial<Tomador>) {
 
 export async function deleteTomador(id: string) {
   const supabase = createClient()
-  const { error } = await supabase.from('tomadores').delete().eq('id', id)
+  const user = await getUser()
+  const { error } = await supabase
+    .from('tomadores')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
+
   if (error) throw error
   revalidatePath('/tomadores')
 }

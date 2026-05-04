@@ -4,12 +4,21 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Parcela } from '@/types'
 
+async function getUser() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autenticado')
+  return user
+}
+
 export async function getParcelasByEmprestimo(emprestimoId: string) {
   const supabase = createClient()
+  const user = await getUser()
   const { data, error } = await supabase
     .from('parcelas')
     .select('*')
     .eq('emprestimo_id', emprestimoId)
+    .eq('user_id', user.id)
     .order('numero')
 
   if (error) throw error
@@ -18,9 +27,11 @@ export async function getParcelasByEmprestimo(emprestimoId: string) {
 
 export async function getAllParcelas(filtros?: { status?: string; proximosDias?: number }) {
   const supabase = createClient()
+  const user = await getUser()
   let query = supabase
     .from('parcelas')
     .select('*, emprestimo:emprestimos(*, tomador:tomadores(nome))')
+    .eq('user_id', user.id)
     .order('data_vencimento')
 
   if (filtros?.status) {
@@ -51,13 +62,13 @@ export async function registrarPagamento(
   }
 ) {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
+  const user = await getUser()
 
   const { data: parcela } = await supabase
     .from('parcelas')
     .select('valor_esperado, tipo')
     .eq('id', parcelaId)
+    .eq('user_id', user.id)
     .single()
 
   if (!parcela) throw new Error('Parcela não encontrada')
@@ -73,6 +84,7 @@ export async function registrarPagamento(
       observacoes: values.observacoes,
     })
     .eq('id', parcelaId)
+    .eq('user_id', user.id)
 
   if (parcErr) throw parcErr
 
@@ -91,12 +103,12 @@ export async function registrarPagamento(
 
   if (trxErr) throw trxErr
 
-  // Se quitou o principal → muda status do empréstimo
   if (parcela.tipo === 'principal' && novoPagamento === 'pago') {
     await supabase
       .from('emprestimos')
       .update({ status: 'quitado' })
       .eq('id', emprestimoId)
+      .eq('user_id', user.id)
   }
 
   revalidatePath(`/emprestimos/${emprestimoId}`)
@@ -106,13 +118,13 @@ export async function registrarPagamento(
 
 export async function estornarPagamento(parcelaId: string, emprestimoId: string) {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
+  const user = await getUser()
 
   const { data: parcela } = await supabase
     .from('parcelas')
     .select('valor_pago, data_pagamento')
     .eq('id', parcelaId)
+    .eq('user_id', user.id)
     .single()
 
   if (!parcela) throw new Error('Parcela não encontrada')
@@ -127,11 +139,11 @@ export async function estornarPagamento(parcelaId: string, emprestimoId: string)
     observacoes: 'Estorno',
   })
 
-  await supabase.from('parcelas').update({
-    status: 'pendente',
-    data_pagamento: null,
-    valor_pago: null,
-  }).eq('id', parcelaId)
+  await supabase
+    .from('parcelas')
+    .update({ status: 'pendente', data_pagamento: null, valor_pago: null })
+    .eq('id', parcelaId)
+    .eq('user_id', user.id)
 
   revalidatePath(`/emprestimos/${emprestimoId}`)
   revalidatePath('/dashboard')
@@ -148,7 +160,13 @@ export async function updateParcela(
   }
 ) {
   const supabase = createClient()
-  const { error } = await supabase.from('parcelas').update(values).eq('id', parcelaId)
+  const user = await getUser()
+  const { error } = await supabase
+    .from('parcelas')
+    .update(values)
+    .eq('id', parcelaId)
+    .eq('user_id', user.id)
+
   if (error) throw error
   revalidatePath(`/emprestimos/${emprestimoId}`)
   revalidatePath('/parcelas')
@@ -157,7 +175,13 @@ export async function updateParcela(
 
 export async function deleteParcela(parcelaId: string, emprestimoId: string) {
   const supabase = createClient()
-  const { error } = await supabase.from('parcelas').delete().eq('id', parcelaId)
+  const user = await getUser()
+  const { error } = await supabase
+    .from('parcelas')
+    .delete()
+    .eq('id', parcelaId)
+    .eq('user_id', user.id)
+
   if (error) throw error
   revalidatePath(`/emprestimos/${emprestimoId}`)
   revalidatePath('/parcelas')
@@ -165,35 +189,35 @@ export async function deleteParcela(parcelaId: string, emprestimoId: string) {
 
 export async function regenerarParcelasPendentes(emprestimoId: string) {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
+  const user = await getUser()
 
   const { data: emp } = await supabase
     .from('emprestimos')
     .select('*')
     .eq('id', emprestimoId)
+    .eq('user_id', user.id)
     .single()
+
   if (!emp) throw new Error('Empréstimo não encontrado')
 
-  // Remove parcelas não pagas (pendente, atrasado) e isentas
   await supabase
     .from('parcelas')
     .delete()
     .eq('emprestimo_id', emprestimoId)
+    .eq('user_id', user.id)
     .in('status', ['pendente', 'atrasado', 'isento'])
 
-  // Descobre o próximo numero baseado nas pagas que restaram
   const { data: pagas } = await supabase
     .from('parcelas')
     .select('numero')
     .eq('emprestimo_id', emprestimoId)
+    .eq('user_id', user.id)
     .eq('status', 'pago')
     .order('numero', { ascending: false })
     .limit(1)
 
   const proximoNumero = pagas && pagas.length > 0 ? pagas[0].numero + 1 : 1
 
-  // Gera parcelas do início ao vencimento e filtra as que ainda não foram pagas
   const { gerarParcelas } = await import('@/utils/juros')
   const todasParcelas = gerarParcelas(
     emp.valor_principal,
@@ -205,11 +229,7 @@ export async function regenerarParcelasPendentes(emprestimoId: string) {
 
   const novasParcelas = todasParcelas
     .filter(p => p.numero >= proximoNumero)
-    .map(p => ({
-      ...p,
-      emprestimo_id: emprestimoId,
-      user_id: user.id,
-    }))
+    .map(p => ({ ...p, emprestimo_id: emprestimoId, user_id: user.id }))
 
   if (novasParcelas.length > 0) {
     const { error } = await supabase.from('parcelas').insert(novasParcelas)
@@ -223,11 +243,13 @@ export async function regenerarParcelasPendentes(emprestimoId: string) {
 
 export async function sincronizarStatusParcelas() {
   const supabase = createClient()
+  const user = await getUser()
   const hoje = new Date().toISOString().split('T')[0]
 
   const { error } = await supabase
     .from('parcelas')
     .update({ status: 'atrasado' })
+    .eq('user_id', user.id)
     .eq('status', 'pendente')
     .lt('data_vencimento', hoje)
 

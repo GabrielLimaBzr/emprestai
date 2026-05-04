@@ -1,13 +1,14 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { DateInput } from '@/components/ui/date-input'
+import { InputMoeda } from '@/components/ui/input-moeda'
 import { Loader2 } from 'lucide-react'
 import { formatCurrency } from '@/utils/currency'
 import { today } from '@/utils/date'
@@ -29,7 +30,7 @@ interface PagamentoFormProps {
 }
 
 export function PagamentoForm({ parcela, onSubmit, isLoading }: PagamentoFormProps) {
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormValues>({
+  const { control, register, handleSubmit, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       valor_pago: parcela.valor_esperado,
@@ -40,6 +41,7 @@ export function PagamentoForm({ parcela, onSubmit, isLoading }: PagamentoFormPro
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* Resumo da parcela */}
       <div className="p-3 rounded-lg bg-secondary/50 text-sm space-y-1">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Parcela</span>
@@ -52,39 +54,40 @@ export function PagamentoForm({ parcela, onSubmit, isLoading }: PagamentoFormPro
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="valor_pago">Valor pago (R$) *</Label>
-        <Input
-          id="valor_pago"
-          type="number"
-          step="0.01"
-          min="0.01"
-          {...register('valor_pago')}
+        <Label>Valor pago *</Label>
+        <Controller
+          name="valor_pago"
+          control={control}
+          render={({ field }) => (
+            <InputMoeda value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+          )}
         />
         {errors.valor_pago && <p className="text-xs text-destructive">{errors.valor_pago.message}</p>}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="data_pagamento">Data do pagamento *</Label>
-        <Input id="data_pagamento" type="date" {...register('data_pagamento')} />
+        <DateInput id="data_pagamento" {...register('data_pagamento')} />
         {errors.data_pagamento && <p className="text-xs text-destructive">{errors.data_pagamento.message}</p>}
       </div>
 
       <div className="space-y-2">
         <Label>Forma de pagamento *</Label>
-        <Select
-          defaultValue="pix"
-          onValueChange={(v) => setValue('forma_pagamento', v as FormValues['forma_pagamento'])}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pix">PIX</SelectItem>
-            <SelectItem value="dinheiro">Dinheiro</SelectItem>
-            <SelectItem value="transferencia">Transferência</SelectItem>
-            <SelectItem value="cheque">Cheque</SelectItem>
-          </SelectContent>
-        </Select>
+        <Controller
+          name="forma_pagamento"
+          control={control}
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pix">PIX</SelectItem>
+                <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                <SelectItem value="transferencia">Transferência</SelectItem>
+                <SelectItem value="cheque">Cheque</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
       </div>
 
       <div className="space-y-2">

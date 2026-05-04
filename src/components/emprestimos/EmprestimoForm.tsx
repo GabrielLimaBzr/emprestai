@@ -1,14 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DateInput } from '@/components/ui/date-input'
+import { InputMoeda } from '@/components/ui/input-moeda'
+import { InputPorcentagem } from '@/components/ui/input-porcentagem'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { gerarParcelas, calcularJurosMensal } from '@/utils/juros'
 import { formatCurrency } from '@/utils/currency'
@@ -37,12 +39,13 @@ interface EmprestimoFormProps {
 export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFormProps) {
   const [previewParcelas, setPreviewParcelas] = useState<ReturnType<typeof gerarParcelas>>([])
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
+  const { control, register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       modalidade: 'juros_mensais',
       taxa_juros_mensal: 0.05,
       data_inicio: new Date().toISOString().split('T')[0],
+      valor_principal: 0,
     },
   })
 
@@ -51,20 +54,11 @@ export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFor
   useEffect(() => {
     const { valor_principal, taxa_juros_mensal, data_inicio, data_vencimento, modalidade } = watchedValues
     if (valor_principal && data_inicio && data_vencimento && data_inicio < data_vencimento) {
-      const parcelas = gerarParcelas(
-        Number(valor_principal),
-        Number(taxa_juros_mensal),
-        data_inicio,
-        data_vencimento,
-        modalidade
-      )
-      setPreviewParcelas(parcelas)
+      setPreviewParcelas(gerarParcelas(Number(valor_principal), Number(taxa_juros_mensal), data_inicio, data_vencimento, modalidade))
     } else {
       setPreviewParcelas([])
     }
   }, [watchedValues.valor_principal, watchedValues.taxa_juros_mensal, watchedValues.data_inicio, watchedValues.data_vencimento, watchedValues.modalidade])
-
-  const selectedTomador = tomadores.find(t => t.id === watchedValues.tomador_id)
 
   function handleTomadorChange(id: string) {
     setValue('tomador_id', id)
@@ -84,77 +78,84 @@ export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFor
     : 0
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
       {/* Tomador */}
       <div className="space-y-2">
         <Label>Tomador *</Label>
-        <Select onValueChange={handleTomadorChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o tomador" />
-          </SelectTrigger>
-          <SelectContent>
-            {tomadores.map(t => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.nome} {t.eh_familiar && '(familiar)'}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Controller
+          name="tomador_id"
+          control={control}
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={handleTomadorChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o tomador" />
+              </SelectTrigger>
+              <SelectContent>
+                {tomadores.map(t => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.nome} {t.eh_familiar && '(familiar)'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
         {errors.tomador_id && <p className="text-xs text-destructive">{errors.tomador_id.message}</p>}
       </div>
 
       {/* Valor e modalidade */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="valor_principal">Valor principal (R$) *</Label>
-          <Input
-            id="valor_principal"
-            type="number"
-            step="0.01"
-            min="0.01"
-            placeholder="5000.00"
-            {...register('valor_principal')}
+          <Label>Valor principal *</Label>
+          <Controller
+            name="valor_principal"
+            control={control}
+            render={({ field }) => (
+              <InputMoeda value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+            )}
           />
           {errors.valor_principal && <p className="text-xs text-destructive">{errors.valor_principal.message}</p>}
         </div>
 
         <div className="space-y-2">
           <Label>Modalidade *</Label>
-          <Select
-            value={watchedValues.modalidade}
-            onValueChange={(v) => {
-              setValue('modalidade', v as 'juros_mensais' | 'sem_juros')
-              if (v === 'sem_juros') setValue('taxa_juros_mensal', 0)
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="juros_mensais">Juros mensais</SelectItem>
-              <SelectItem value="sem_juros">Sem juros</SelectItem>
-            </SelectContent>
-          </Select>
+          <Controller
+            name="modalidade"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={(v) => {
+                  field.onChange(v)
+                  if (v === 'sem_juros') setValue('taxa_juros_mensal', 0)
+                }}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="juros_mensais">Juros mensais</SelectItem>
+                  <SelectItem value="sem_juros">Sem juros</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
         </div>
       </div>
 
       {/* Taxa de juros */}
       {watchedValues.modalidade === 'juros_mensais' && (
         <div className="space-y-2">
-          <Label htmlFor="taxa_juros_mensal">Taxa de juros mensal (ex: 0.05 = 5%) *</Label>
-          <Input
-            id="taxa_juros_mensal"
-            type="number"
-            step="0.001"
-            min="0"
-            max="1"
-            placeholder="0.05"
-            {...register('taxa_juros_mensal')}
+          <Label>Taxa de juros mensal *</Label>
+          <Controller
+            name="taxa_juros_mensal"
+            control={control}
+            render={({ field }) => (
+              <InputPorcentagem value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+            )}
           />
-          {watchedValues.taxa_juros_mensal > 0 && (
+          {jurosMensal > 0 && watchedValues.valor_principal > 0 && (
             <p className="text-xs text-muted-foreground">
-              {(Number(watchedValues.taxa_juros_mensal) * 100).toFixed(2)}% ao mês
-              {jurosMensal > 0 && ` = ${formatCurrency(jurosMensal)} por mês`}
+              = {formatCurrency(jurosMensal)} por mês
             </p>
           )}
         </div>
@@ -164,12 +165,12 @@ export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFor
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="data_inicio">Data de início *</Label>
-          <Input id="data_inicio" type="date" {...register('data_inicio')} />
+          <DateInput id="data_inicio" {...register('data_inicio')} />
           {errors.data_inicio && <p className="text-xs text-destructive">{errors.data_inicio.message}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="data_vencimento">Data de vencimento *</Label>
-          <Input id="data_vencimento" type="date" {...register('data_vencimento')} />
+          <DateInput id="data_vencimento" {...register('data_vencimento')} />
           {errors.data_vencimento && <p className="text-xs text-destructive">{errors.data_vencimento.message}</p>}
           {meses > 0 && <p className="text-xs text-muted-foreground">{meses} {meses === 1 ? 'mês' : 'meses'}</p>}
         </div>

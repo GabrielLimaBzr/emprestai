@@ -5,11 +5,20 @@ import { revalidatePath } from 'next/cache'
 import { gerarParcelas } from '@/utils/juros'
 import type { Emprestimo, EmprestimoResumo } from '@/types'
 
+async function getUser() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autenticado')
+  return user
+}
+
 export async function getEmprestimos() {
   const supabase = createClient()
+  const user = await getUser()
   const { data, error } = await supabase
     .from('emprestimos')
     .select('*, tomador:tomadores(*)')
+    .eq('user_id', user.id)
     .order('criado_em', { ascending: false })
 
   if (error) throw error
@@ -18,9 +27,11 @@ export async function getEmprestimos() {
 
 export async function getEmprestimosResumo() {
   const supabase = createClient()
+  const user = await getUser()
   const { data, error } = await supabase
     .from('vw_emprestimos_resumo')
     .select('*')
+    .eq('user_id', user.id)
     .order('data_vencimento')
 
   if (error) throw error
@@ -29,10 +40,12 @@ export async function getEmprestimosResumo() {
 
 export async function getEmprestimoById(id: string) {
   const supabase = createClient()
+  const user = await getUser()
   const { data, error } = await supabase
     .from('emprestimos')
     .select('*, tomador:tomadores(*)')
     .eq('id', id)
+    .eq('user_id', user.id)
     .single()
 
   if (error) throw error
@@ -50,8 +63,7 @@ export async function createEmprestimo(values: {
   garantia?: string
 }) {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
+  const user = await getUser()
 
   const { data: emprestimo, error: empErr } = await supabase
     .from('emprestimos')
@@ -85,10 +97,12 @@ export async function createEmprestimo(values: {
 
 export async function updateEmprestimoStatus(id: string, status: Emprestimo['status']) {
   const supabase = createClient()
+  const user = await getUser()
   const { error } = await supabase
     .from('emprestimos')
     .update({ status })
     .eq('id', id)
+    .eq('user_id', user.id)
 
   if (error) throw error
   revalidatePath('/emprestimos')
@@ -110,7 +124,13 @@ export async function updateEmprestimo(
   }
 ) {
   const supabase = createClient()
-  const { error } = await supabase.from('emprestimos').update(values).eq('id', id)
+  const user = await getUser()
+  const { error } = await supabase
+    .from('emprestimos')
+    .update(values)
+    .eq('id', id)
+    .eq('user_id', user.id)
+
   if (error) throw error
   revalidatePath('/emprestimos')
   revalidatePath(`/emprestimos/${id}`)
@@ -119,8 +139,13 @@ export async function updateEmprestimo(
 
 export async function deleteEmprestimo(id: string) {
   const supabase = createClient()
-  // parcelas e transacoes têm ON DELETE CASCADE, são removidas automaticamente
-  const { error } = await supabase.from('emprestimos').delete().eq('id', id)
+  const user = await getUser()
+  const { error } = await supabase
+    .from('emprestimos')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
+
   if (error) throw error
   revalidatePath('/emprestimos')
   revalidatePath('/dashboard')

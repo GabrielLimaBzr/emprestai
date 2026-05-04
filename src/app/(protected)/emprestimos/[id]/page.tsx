@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { getEmprestimoById, updateEmprestimo, deleteEmprestimo } from '@/app/actions/emprestimos'
@@ -20,6 +20,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DateInput } from '@/components/ui/date-input'
+import { InputMoeda } from '@/components/ui/input-moeda'
+import { InputPorcentagem } from '@/components/ui/input-porcentagem'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
@@ -489,59 +492,72 @@ export default function EmprestimoDetalhePage() {
           <form onSubmit={empForm.handleSubmit(handleEditEmp)} className="space-y-4 pt-1">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Valor principal (R$)</Label>
-                <Input type="number" step="0.01" {...empForm.register('valor_principal')} />
+                <Label>Valor principal</Label>
+                <Controller
+                  name="valor_principal"
+                  control={empForm.control}
+                  render={({ field }) => (
+                    <InputMoeda value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                  )}
+                />
               </div>
               <div className="space-y-1.5">
-                <Label>Taxa mensal (ex: 0.05)</Label>
-                <Input type="number" step="0.001" min="0" max="1" {...empForm.register('taxa_juros_mensal')} />
-                {empForm.watch('taxa_juros_mensal') > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    = {(Number(empForm.watch('taxa_juros_mensal')) * 100).toFixed(2)}% a.m.
-                  </p>
-                )}
+                <Label>Taxa mensal</Label>
+                <Controller
+                  name="taxa_juros_mensal"
+                  control={empForm.control}
+                  render={({ field }) => (
+                    <InputPorcentagem value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                  )}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Data de início</Label>
-                <Input type="date" {...empForm.register('data_inicio')} />
+                <DateInput {...empForm.register('data_inicio')} />
               </div>
               <div className="space-y-1.5">
                 <Label>Data de vencimento</Label>
-                <Input type="date" {...empForm.register('data_vencimento')} />
+                <DateInput {...empForm.register('data_vencimento')} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Modalidade</Label>
-                <Select
-                  value={empForm.watch('modalidade')}
-                  onValueChange={(v) => empForm.setValue('modalidade', v as 'juros_mensais' | 'sem_juros')}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="juros_mensais">Juros mensais</SelectItem>
-                    <SelectItem value="sem_juros">Sem juros</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  name="modalidade"
+                  control={empForm.control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="juros_mensais">Juros mensais</SelectItem>
+                        <SelectItem value="sem_juros">Sem juros</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Status</Label>
-                <Select
-                  value={empForm.watch('status')}
-                  onValueChange={(v) => empForm.setValue('status', v as EditEmpValues['status'])}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                    <SelectItem value="inadimplente">Inadimplente</SelectItem>
-                    <SelectItem value="quitado">Quitado</SelectItem>
-                    <SelectItem value="renegociado">Renegociado</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  name="status"
+                  control={empForm.control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ativo">Ativo</SelectItem>
+                        <SelectItem value="inadimplente">Inadimplente</SelectItem>
+                        <SelectItem value="quitado">Quitado</SelectItem>
+                        <SelectItem value="renegociado">Renegociado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
             </div>
 
@@ -581,28 +597,37 @@ export default function EmprestimoDetalhePage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Valor esperado (R$)</Label>
-                <Input type="number" step="0.01" min="0" {...parcelaForm.register('valor_esperado')} />
+                <Controller
+                  name="valor_esperado"
+                  control={parcelaForm.control}
+                  render={({ field }) => (
+                    <InputMoeda value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                  )}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Data de vencimento</Label>
-                <Input type="date" {...parcelaForm.register('data_vencimento')} />
+                <DateInput {...parcelaForm.register('data_vencimento')} />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select
-                value={parcelaForm.watch('status')}
-                onValueChange={(v) => parcelaForm.setValue('status', v as EditParcelaValues['status'])}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="pago">Pago</SelectItem>
-                  <SelectItem value="atrasado">Atrasado</SelectItem>
-                  <SelectItem value="isento">Isento</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                name="status"
+                control={parcelaForm.control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="pago">Pago</SelectItem>
+                      <SelectItem value="atrasado">Atrasado</SelectItem>
+                      <SelectItem value="isento">Isento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             <div className="space-y-1.5">
