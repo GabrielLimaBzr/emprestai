@@ -1,0 +1,223 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Loader2, AlertCircle } from 'lucide-react'
+import { gerarParcelas, calcularJurosMensal } from '@/utils/juros'
+import { formatCurrency } from '@/utils/currency'
+import { formatDate, monthsBetween } from '@/utils/date'
+import type { Tomador } from '@/types'
+
+const schema = z.object({
+  tomador_id: z.string().uuid('Selecione um tomador'),
+  valor_principal: z.coerce.number().positive('Valor deve ser positivo'),
+  taxa_juros_mensal: z.coerce.number().min(0).max(1),
+  data_inicio: z.string().min(1, 'Informe a data de início'),
+  data_vencimento: z.string().min(1, 'Informe a data de vencimento'),
+  modalidade: z.enum(['juros_mensais', 'sem_juros']),
+  descricao: z.string().optional(),
+  garantia: z.string().optional(),
+})
+
+type FormValues = z.infer<typeof schema>
+
+interface EmprestimoFormProps {
+  tomadores: Tomador[]
+  onSubmit: (values: FormValues) => Promise<void>
+  isLoading?: boolean
+}
+
+export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFormProps) {
+  const [previewParcelas, setPreviewParcelas] = useState<ReturnType<typeof gerarParcelas>>([])
+
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      modalidade: 'juros_mensais',
+      taxa_juros_mensal: 0.05,
+      data_inicio: new Date().toISOString().split('T')[0],
+    },
+  })
+
+  const watchedValues = watch()
+
+  useEffect(() => {
+    const { valor_principal, taxa_juros_mensal, data_inicio, data_vencimento, modalidade } = watchedValues
+    if (valor_principal && data_inicio && data_vencimento && data_inicio < data_vencimento) {
+      const parcelas = gerarParcelas(
+        Number(valor_principal),
+        Number(taxa_juros_mensal),
+        data_inicio,
+        data_vencimento,
+        modalidade
+      )
+      setPreviewParcelas(parcelas)
+    } else {
+      setPreviewParcelas([])
+    }
+  }, [watchedValues.valor_principal, watchedValues.taxa_juros_mensal, watchedValues.data_inicio, watchedValues.data_vencimento, watchedValues.modalidade])
+
+  const selectedTomador = tomadores.find(t => t.id === watchedValues.tomador_id)
+
+  function handleTomadorChange(id: string) {
+    setValue('tomador_id', id)
+    const tomador = tomadores.find(t => t.id === id)
+    if (tomador?.eh_familiar) {
+      setValue('modalidade', 'sem_juros')
+      setValue('taxa_juros_mensal', 0)
+    }
+  }
+
+  const meses = watchedValues.data_inicio && watchedValues.data_vencimento
+    ? monthsBetween(watchedValues.data_inicio, watchedValues.data_vencimento)
+    : 0
+
+  const jurosMensal = watchedValues.valor_principal && watchedValues.taxa_juros_mensal
+    ? calcularJurosMensal(Number(watchedValues.valor_principal), Number(watchedValues.taxa_juros_mensal))
+    : 0
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Tomador */}
+      <div className="space-y-2">
+        <Label>Tomador *</Label>
+        <Select onValueChange={handleTomadorChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione o tomador" />
+          </SelectTrigger>
+          <SelectContent>
+            {tomadores.map(t => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.nome} {t.eh_familiar && '(familiar)'}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errors.tomador_id && <p className="text-xs text-destructive">{errors.tomador_id.message}</p>}
+      </div>
+
+      {/* Valor e modalidade */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="valor_principal">Valor principal (R$) *</Label>
+          <Input
+            id="valor_principal"
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder="5000.00"
+            {...register('valor_principal')}
+          />
+          {errors.valor_principal && <p className="text-xs text-destructive">{errors.valor_principal.message}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Modalidade *</Label>
+          <Select
+            value={watchedValues.modalidade}
+            onValueChange={(v) => {
+              setValue('modalidade', v as 'juros_mensais' | 'sem_juros')
+              if (v === 'sem_juros') setValue('taxa_juros_mensal', 0)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="juros_mensais">Juros mensais</SelectItem>
+              <SelectItem value="sem_juros">Sem juros</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Taxa de juros */}
+      {watchedValues.modalidade === 'juros_mensais' && (
+        <div className="space-y-2">
+          <Label htmlFor="taxa_juros_mensal">Taxa de juros mensal (ex: 0.05 = 5%) *</Label>
+          <Input
+            id="taxa_juros_mensal"
+            type="number"
+            step="0.001"
+            min="0"
+            max="1"
+            placeholder="0.05"
+            {...register('taxa_juros_mensal')}
+          />
+          {watchedValues.taxa_juros_mensal > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {(Number(watchedValues.taxa_juros_mensal) * 100).toFixed(2)}% ao mês
+              {jurosMensal > 0 && ` = ${formatCurrency(jurosMensal)} por mês`}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Datas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="data_inicio">Data de início *</Label>
+          <Input id="data_inicio" type="date" {...register('data_inicio')} />
+          {errors.data_inicio && <p className="text-xs text-destructive">{errors.data_inicio.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="data_vencimento">Data de vencimento *</Label>
+          <Input id="data_vencimento" type="date" {...register('data_vencimento')} />
+          {errors.data_vencimento && <p className="text-xs text-destructive">{errors.data_vencimento.message}</p>}
+          {meses > 0 && <p className="text-xs text-muted-foreground">{meses} {meses === 1 ? 'mês' : 'meses'}</p>}
+        </div>
+      </div>
+
+      {/* Descrição e garantia */}
+      <div className="space-y-2">
+        <Label htmlFor="descricao">Descrição / finalidade</Label>
+        <Input id="descricao" placeholder="Ex: Pagamento de dívida, reforma..." {...register('descricao')} />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="garantia">Garantia</Label>
+        <Input id="garantia" placeholder="Ex: Cheque pré-datado, nota promissória..." {...register('garantia')} />
+      </div>
+
+      {/* Preview de parcelas */}
+      {previewParcelas.length > 0 && (
+        <div className="rounded-lg border border-border p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            Parcelas que serão geradas ({previewParcelas.length})
+          </div>
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            {previewParcelas.map((p) => (
+              <div key={p.numero} className="flex items-center justify-between text-xs py-1 border-b border-border/50 last:border-0">
+                <span className="text-muted-foreground">
+                  #{p.numero} — {p.tipo === 'juros' ? 'Juros' : 'Principal'} — {formatDate(p.data_vencimento)}
+                </span>
+                <span className={p.tipo === 'principal' ? 'font-semibold text-primary' : ''}>
+                  {p.status === 'isento' ? 'Isento' : formatCurrency(p.valor_esperado)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between text-sm font-medium pt-1">
+            <span>Total esperado</span>
+            <span className="text-primary">
+              {formatCurrency(previewParcelas.reduce((s, p) => s + (p.status === 'isento' ? 0 : p.valor_esperado), 0))}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <Button type="submit" className="w-full" disabled={isLoading}>
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Criar empréstimo
+      </Button>
+    </form>
+  )
+}
