@@ -16,11 +16,13 @@ interface StatCardProps {
 export function StatCard({ title, value, description, icon: Icon, trend, className, iconClassName }: StatCardProps) {
   return (
     <Card className={cn('', className)}>
-      <CardContent className="p-6">
+      <CardContent className="p-6 [container-type:inline-size]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold break-words"><ValorPrivado>{value}</ValorPrivado></p>
+            <p className="font-bold whitespace-nowrap" style={{ fontSize: 'clamp(0.875rem, 8cqw, 1.5rem)' }}>
+              <ValorPrivado>{value}</ValorPrivado>
+            </p>
             {description && (
               <p className={cn(
                 'text-xs',
