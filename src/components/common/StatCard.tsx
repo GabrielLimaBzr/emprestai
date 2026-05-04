@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
+import { ValorPrivado } from '@/components/ui/valor-privado'
 
 interface StatCardProps {
   title: string
@@ -16,10 +17,10 @@ export function StatCard({ title, value, description, icon: Icon, trend, classNa
   return (
     <Card className={cn('', className)}>
       <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold">{value}</p>
+            <p className="text-2xl font-bold break-words"><ValorPrivado>{value}</ValorPrivado></p>
             {description && (
               <p className={cn(
                 'text-xs',
@@ -30,7 +31,7 @@ export function StatCard({ title, value, description, icon: Icon, trend, classNa
               )}>{description}</p>
             )}
           </div>
-          <div className={cn('p-2.5 rounded-lg bg-primary/10', iconClassName)}>
+          <div className={cn('shrink-0 p-2.5 rounded-lg bg-primary/10', iconClassName)}>
             <Icon className="h-5 w-5 text-primary" />
           </div>
         </div>

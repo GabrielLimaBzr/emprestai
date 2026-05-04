@@ -137,6 +137,102 @@ export async function updateEmprestimo(
   revalidatePath('/dashboard')
 }
 
+export async function renegociarEmprestimo(
+  id: string,
+  values: {
+    tipo: 'prorrogar' | 'amortizar'
+    nova_data_vencimento: string
+    nova_taxa_juros_mensal: number
+    valor_amortizado?: number
+    data_amortizacao?: string
+    forma_pagamento_amortizacao?: string
+  }
+) {
+  const supabase = createClient()
+  const user = await getUser()
+
+  const { data: emp } = await supabase
+    .from('emprestimos')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+  if (!emp) throw new Error('Empréstimo não encontrado')
+
+  const novoPrincipal =
+    values.tipo === 'amortizar' && values.valor_amortizado
+      ? emp.valor_principal - values.valor_amortizado
+      : emp.valor_principal
+
+  if (novoPrincipal <= 0) throw new Error('Valor amortizado não pode ser maior ou igual ao principal')
+
+  // 1. Registrar amortização no histórico
+  if (values.tipo === 'amortizar' && values.valor_amortizado && values.valor_amortizado > 0) {
+    const { error } = await supabase.from('transacoes').insert({
+      user_id: user.id,
+      emprestimo_id: id,
+      tipo: 'principal_recebido',
+      valor: values.valor_amortizado,
+      data: values.data_amortizacao ?? new Date().toISOString().split('T')[0],
+      forma_pagamento: values.forma_pagamento_amortizacao ?? null,
+      observacoes: `Amortização parcial — principal anterior: R$ ${emp.valor_principal.toFixed(2)}`,
+    })
+    if (error) throw error
+  }
+
+  // 2. Atualizar o contrato
+  await supabase.from('emprestimos').update({
+    valor_principal: novoPrincipal,
+    taxa_juros_mensal: values.nova_taxa_juros_mensal,
+    data_vencimento: values.nova_data_vencimento,
+    status: 'ativo',
+  }).eq('id', id).eq('user_id', user.id)
+
+  // 3. Remover todas as parcelas pendentes/atrasadas (incluindo o principal futuro)
+  await supabase.from('parcelas').delete()
+    .eq('emprestimo_id', id)
+    .eq('user_id', user.id)
+    .in('status', ['pendente', 'atrasado', 'isento'])
+
+  // 4. Descobrir próximo número de parcela
+  const { data: pagas } = await supabase
+    .from('parcelas')
+    .select('numero')
+    .eq('emprestimo_id', id)
+    .eq('user_id', user.id)
+    .order('numero', { ascending: false })
+    .limit(1)
+
+  const proximoNumero = pagas && pagas.length > 0 ? pagas[0].numero + 1 : 1
+
+  // 5. Gerar novas parcelas a partir de hoje
+  const { gerarParcelas } = await import('@/utils/juros')
+  const hoje = new Date().toISOString().split('T')[0]
+  const novasParcelas = gerarParcelas(
+    novoPrincipal,
+    values.nova_taxa_juros_mensal,
+    hoje,
+    values.nova_data_vencimento,
+    emp.modalidade
+  )
+
+  const parcelasToInsert = novasParcelas.map((p, i) => ({
+    ...p,
+    numero: proximoNumero + i,
+    emprestimo_id: id,
+    user_id: user.id,
+  }))
+
+  if (parcelasToInsert.length > 0) {
+    const { error } = await supabase.from('parcelas').insert(parcelasToInsert)
+    if (error) throw error
+  }
+
+  revalidatePath(`/emprestimos/${id}`)
+  revalidatePath('/emprestimos')
+  revalidatePath('/dashboard')
+}
+
 export async function deleteEmprestimo(id: string) {
   const supabase = createClient()
   const user = await getUser()

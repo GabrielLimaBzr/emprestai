@@ -3,12 +3,13 @@
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { LogOut, Menu } from 'lucide-react'
+import { LogOut, Menu, Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, TrendingUp, Users, CalendarDays, BarChart3, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { usePrivacy } from '@/contexts/privacy'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,6 +28,7 @@ export function AppHeader({ userEmail }: AppHeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { isPrivate, toggle } = usePrivacy()
 
   async function handleLogout() {
     const supabase = createClient()
@@ -59,6 +61,14 @@ export function AppHeader({ userEmail }: AppHeaderProps) {
           {userEmail && (
             <span className="hidden sm:block text-sm text-muted-foreground">{userEmail}</span>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggle}
+            title={isPrivate ? 'Mostrar valores' : 'Ocultar valores'}
+          >
+            {isPrivate ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </Button>
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
             <LogOut className="h-4 w-4" />
           </Button>

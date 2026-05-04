@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { getEmprestimoById, updateEmprestimo, deleteEmprestimo } from '@/app/actions/emprestimos'
+import { getEmprestimoById, updateEmprestimo, deleteEmprestimo, renegociarEmprestimo } from '@/app/actions/emprestimos'
 import {
   getParcelasByEmprestimo,
   registrarPagamento,
@@ -35,7 +35,7 @@ import { formatDate } from '@/utils/date'
 import { toast } from '@/hooks/use-toast'
 import {
   ArrowLeft, CreditCard, RotateCcw, Loader2, Pencil, Trash2,
-  RefreshCw, PencilLine, X,
+  RefreshCw, PencilLine, X, Repeat2,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Emprestimo, Parcela } from '@/types'
@@ -62,6 +62,21 @@ const editParcelaSchema = z.object({
 })
 type EditParcelaValues = z.infer<typeof editParcelaSchema>
 
+// ─── Schema renegociação ──────────────────────────────────────────────────────
+const renegociarSchema = z.object({
+  tipo: z.enum(['prorrogar', 'amortizar']),
+  nova_data_vencimento: z.string().min(1, 'Informe a data de vencimento'),
+  nova_taxa_juros_mensal: z.coerce.number().min(0).max(1),
+  valor_amortizado: z.coerce.number().min(0).optional(),
+  data_amortizacao: z.string().optional(),
+  forma_pagamento_amortizacao: z.enum(['pix', 'dinheiro', 'transferencia', 'cheque']).optional(),
+}).superRefine((data, ctx) => {
+  if (data.tipo === 'amortizar' && (!data.valor_amortizado || data.valor_amortizado <= 0)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Informe o valor amortizado', path: ['valor_amortizado'] })
+  }
+})
+type RenegociarValues = z.infer<typeof renegociarSchema>
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function EmprestimoDetalhePage() {
@@ -77,6 +92,7 @@ export default function EmprestimoDetalhePage() {
   const [pagandoParcela, setPagandoParcela] = useState<Parcela | null>(null)
   const [editandoParcela, setEditandoParcela] = useState<Parcela | null>(null)
   const [editEmpOpen, setEditEmpOpen] = useState(false)
+  const [renegociarOpen, setRenegociarOpen] = useState(false)
 
   // Loading states
   const [pagamentoLoading, setPagamentoLoading] = useState(false)
@@ -84,10 +100,15 @@ export default function EmprestimoDetalhePage() {
   const [editParcelaLoading, setEditParcelaLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [regenerarLoading, setRegenerarLoading] = useState(false)
+  const [renegociarLoading, setRenegociarLoading] = useState(false)
 
   // ── Forms ──────────────────────────────────────────────────────────────────
   const empForm = useForm<EditEmpValues>({ resolver: zodResolver(editEmpSchema) })
   const parcelaForm = useForm<EditParcelaValues>({ resolver: zodResolver(editParcelaSchema) })
+  const renegForm = useForm<RenegociarValues>({
+    resolver: zodResolver(renegociarSchema),
+    defaultValues: { tipo: 'prorrogar', nova_taxa_juros_mensal: 0 },
+  })
 
   // ── Carregar dados ─────────────────────────────────────────────────────────
   async function carregar() {
@@ -130,6 +151,20 @@ export default function EmprestimoDetalhePage() {
       })
     }
   }, [editandoParcela])
+
+  // Preenche o form de renegociação quando o modal abre
+  useEffect(() => {
+    if (renegociarOpen && emprestimo) {
+      renegForm.reset({
+        tipo: 'prorrogar',
+        nova_data_vencimento: '',
+        nova_taxa_juros_mensal: emprestimo.taxa_juros_mensal,
+        valor_amortizado: 0,
+        data_amortizacao: new Date().toISOString().split('T')[0],
+        forma_pagamento_amortizacao: 'pix',
+      })
+    }
+  }, [renegociarOpen, emprestimo])
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -209,6 +244,20 @@ export default function EmprestimoDetalhePage() {
     }
   }
 
+  async function handleRenegociar(values: RenegociarValues) {
+    setRenegociarLoading(true)
+    try {
+      await renegociarEmprestimo(id, values)
+      toast({ title: 'Renegociação concluída!', description: 'Novas parcelas geradas com sucesso.' })
+      setRenegociarOpen(false)
+      await carregar()
+    } catch (err: any) {
+      toast({ title: 'Erro na renegociação', description: err.message, variant: 'destructive' })
+    } finally {
+      setRenegociarLoading(false)
+    }
+  }
+
   async function handleRegenerarParcelas() {
     setRegenerarLoading(true)
     try {
@@ -262,6 +311,11 @@ export default function EmprestimoDetalhePage() {
           <Button variant="outline" size="sm" onClick={() => setEditEmpOpen(true)}>
             <Pencil className="h-3.5 w-3.5 mr-1.5" />
             Editar
+          </Button>
+
+          <Button variant="outline" size="sm" onClick={() => setRenegociarOpen(true)}>
+            <Repeat2 className="h-3.5 w-3.5 mr-1.5" />
+            Renegociar
           </Button>
 
           <AlertDialog>
@@ -645,6 +699,152 @@ export default function EmprestimoDetalhePage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── Modal: renegociar ─────────────────────────────────────────────── */}
+      <Dialog open={renegociarOpen} onOpenChange={setRenegociarOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Renegociar empréstimo</DialogTitle>
+          </DialogHeader>
+          {emprestimo && (
+            <RenegociarForm
+              emprestimo={emprestimo}
+              form={renegForm}
+              onSubmit={handleRenegociar}
+              isLoading={renegociarLoading}
+              onCancel={() => setRenegociarOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  )
+}
+
+// ─── Subcomponente do formulário de renegociação ──────────────────────────────
+function RenegociarForm({
+  emprestimo,
+  form,
+  onSubmit,
+  isLoading,
+  onCancel,
+}: {
+  emprestimo: Emprestimo
+  form: ReturnType<typeof useForm<RenegociarValues>>
+  onSubmit: (values: RenegociarValues) => Promise<void>
+  isLoading: boolean
+  onCancel: () => void
+}) {
+  const { control, register, handleSubmit, watch, formState: { errors } } = form
+  const tipo = watch('tipo')
+  const valorAmortizado = watch('valor_amortizado') ?? 0
+  const novoPrincipal = tipo === 'amortizar' ? emprestimo.valor_principal - valorAmortizado : emprestimo.valor_principal
+  const principalValido = novoPrincipal > 0
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-1">
+      {/* Tipo */}
+      <div className="space-y-1.5">
+        <Label>Tipo de renegociação</Label>
+        <Controller
+          name="tipo"
+          control={control}
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="prorrogar">Prorrogar — estender prazo</SelectItem>
+                <SelectItem value="amortizar">Amortizar — abater parte do principal</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
+      </div>
+
+      {/* Amortização parcial */}
+      {tipo === 'amortizar' && (
+        <div className="rounded-md border border-border p-4 space-y-3">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pagamento parcial do principal</p>
+
+          <div className="space-y-1.5">
+            <Label>Valor amortizado *</Label>
+            <Controller
+              name="valor_amortizado"
+              control={control}
+              render={({ field }) => (
+                <InputMoeda value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+              )}
+            />
+            {errors.valor_amortizado && <p className="text-xs text-destructive">{errors.valor_amortizado.message}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Data do pagamento</Label>
+              <DateInput {...register('data_amortizacao')} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Forma de pagamento</Label>
+              <Controller
+                name="forma_pagamento_amortizacao"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pix">PIX</SelectItem>
+                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                      <SelectItem value="transferencia">Transferência</SelectItem>
+                      <SelectItem value="cheque">Cheque</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Preview novo principal */}
+          <div className={`rounded-md px-3 py-2 text-sm flex justify-between ${principalValido ? 'bg-secondary/50' : 'bg-destructive/10 text-destructive'}`}>
+            <span>Novo principal</span>
+            <span className="font-semibold">
+              {principalValido
+                ? formatCurrency(novoPrincipal)
+                : 'Valor maior que o principal'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Nova taxa e vencimento */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Nova taxa mensal</Label>
+          <Controller
+            name="nova_taxa_juros_mensal"
+            control={control}
+            render={({ field }) => (
+              <InputPorcentagem value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+            )}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Novo vencimento *</Label>
+          <DateInput {...register('nova_data_vencimento')} />
+          {errors.nova_data_vencimento && <p className="text-xs text-destructive">{errors.nova_data_vencimento.message}</p>}
+        </div>
+      </div>
+
+      <div className="rounded-md bg-secondary/40 px-3 py-2.5 text-xs text-muted-foreground">
+        As parcelas pendentes/atrasadas serão removidas e novas parcelas serão geradas a partir de hoje até o novo vencimento.
+      </div>
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit" disabled={isLoading || !principalValido}>
+          {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Confirmar renegociação
+        </Button>
+      </DialogFooter>
+    </form>
   )
 }
