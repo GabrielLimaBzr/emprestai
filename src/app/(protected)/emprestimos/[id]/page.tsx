@@ -293,57 +293,61 @@ export default function EmprestimoDetalhePage() {
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start gap-3">
-        <Button variant="ghost" size="icon" asChild>
+        <Button variant="ghost" size="icon" asChild className="shrink-0 mt-0.5">
           <Link href="/emprestimos"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold">{(emprestimo as any).tomador?.nome}</h1>
-            <StatusEmprestimoBadge status={emprestimo.status} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {formatDate(emprestimo.data_inicio)} → {formatDate(emprestimo.data_vencimento)}
-          </p>
-        </div>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-bold break-words">{(emprestimo as any).tomador?.nome}</h1>
+                <StatusEmprestimoBadge status={emprestimo.status} />
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {formatDate(emprestimo.data_inicio)} → {formatDate(emprestimo.data_vencimento)}
+              </p>
+            </div>
 
-        {/* Ações do contrato */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => setEditEmpOpen(true)}>
-            <Pencil className="h-3.5 w-3.5 mr-1.5" />
-            Editar
-          </Button>
-
-          <Button variant="outline" size="sm" onClick={() => setRenegociarOpen(true)}>
-            <Repeat2 className="h-3.5 w-3.5 mr-1.5" />
-            Renegociar
-          </Button>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive">
-                <Trash2 className="h-3.5 w-3.5" />
+            {/* Ações do contrato */}
+            <div className="flex items-center gap-2 shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setEditEmpOpen(true)}>
+                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                Editar
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Excluir este empréstimo?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Todas as parcelas e transações vinculadas serão removidas. Esta ação não pode ser desfeita.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive hover:bg-destructive/90"
-                  onClick={handleDeleteEmprestimo}
-                  disabled={deleteLoading}
-                >
-                  {deleteLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Excluir permanentemente
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+
+              <Button variant="outline" size="sm" onClick={() => setRenegociarOpen(true)}>
+                <Repeat2 className="h-3.5 w-3.5 mr-1.5" />
+                Renegociar
+              </Button>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir este empréstimo?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Todas as parcelas e transações vinculadas serão removidas. Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive hover:bg-destructive/90"
+                      onClick={handleDeleteEmprestimo}
+                      disabled={deleteLoading}
+                    >
+                      {deleteLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Excluir permanentemente
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
         </div>
       </div>
 
