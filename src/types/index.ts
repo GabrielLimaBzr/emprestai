@@ -1,5 +1,5 @@
 export type StatusEmprestimo = 'ativo' | 'quitado' | 'inadimplente' | 'renegociado'
-export type ModalidadeEmprestimo = 'juros_mensais' | 'sem_juros'
+export type ModalidadeEmprestimo = 'juros_mensais' | 'sem_juros' | 'parcelado'
 export type StatusParcela = 'pendente' | 'pago' | 'atrasado' | 'isento'
 export type TipoParcela = 'juros' | 'principal'
 export type TipoTransacao = 'juros_recebido' | 'principal_recebido' | 'estorno'

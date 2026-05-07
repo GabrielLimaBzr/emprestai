@@ -18,10 +18,34 @@ export function gerarParcelas(
   taxaJurosMensal: number,
   dataInicio: string,
   dataVencimento: string,
-  modalidade: 'juros_mensais' | 'sem_juros'
+  modalidade: 'juros_mensais' | 'sem_juros' | 'parcelado'
 ): ParcelaGerada[] {
   const parcelas: ParcelaGerada[] = []
   const meses = monthsBetween(dataInicio, dataVencimento)
+
+  if (modalidade === 'parcelado') {
+    // Tabela Price: parcelas fixas com ou sem juros
+    // PMT = PV × r(1+r)^n / [(1+r)^n − 1]  (r=0 → PMT = PV/n)
+    let pmt: number
+    const n = Math.max(meses, 1)
+    if (taxaJurosMensal === 0) {
+      pmt = Math.round((valorPrincipal / n) * 100) / 100
+    } else {
+      const r = taxaJurosMensal
+      pmt = Math.round(valorPrincipal * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1) * 100) / 100
+    }
+    for (let i = 1; i <= meses; i++) {
+      parcelas.push({
+        numero: i,
+        tipo: 'principal',
+        valor_esperado: pmt,
+        data_vencimento: addMonths(dataInicio, i),
+        status: 'pendente',
+      })
+    }
+    return parcelas
+  }
+
   const jurosMensal = calcularJurosMensal(valorPrincipal, taxaJurosMensal)
   const isIsento = modalidade === 'sem_juros' || taxaJurosMensal === 0
 

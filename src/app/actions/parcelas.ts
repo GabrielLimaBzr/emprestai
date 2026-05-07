@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { Parcela } from '@/types'
+import type { Parcela, Transacao } from '@/types'
 
 async function getUser() {
   const supabase = createClient()
@@ -241,6 +241,172 @@ export async function updateParcela(
     .eq('user_id', user.id)
 
   if (error) throw error
+  revalidatePath(`/emprestimos/${emprestimoId}`)
+  revalidatePath('/parcelas')
+  revalidatePath('/dashboard')
+}
+
+export async function getTransacoesByEmprestimo(emprestimoId: string) {
+  const supabase = createClient()
+  const user = await getUser()
+  const { data, error } = await supabase
+    .from('transacoes')
+    .select('*')
+    .eq('emprestimo_id', emprestimoId)
+    .eq('user_id', user.id)
+    .order('data', { ascending: false })
+
+  if (error) throw error
+  return data as Transacao[]
+}
+
+export async function deletarTransacao(transacaoId: string, emprestimoId: string) {
+  const supabase = createClient()
+  const user = await getUser()
+
+  const { data: trx } = await supabase
+    .from('transacoes')
+    .select('*')
+    .eq('id', transacaoId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!trx) throw new Error('Transação não encontrada')
+
+  if (trx.parcela_id) {
+    if (trx.tipo === 'principal_recebido') {
+      const { data: remaining } = await supabase
+        .from('transacoes')
+        .select('valor')
+        .eq('parcela_id', trx.parcela_id)
+        .eq('tipo', 'principal_recebido')
+        .neq('id', transacaoId)
+        .eq('user_id', user.id)
+
+      const novoTotal = (remaining ?? []).reduce((acc, t) => acc + (t.valor as number), 0)
+
+      if (novoTotal <= 0) {
+        await supabase
+          .from('parcelas')
+          .update({ valor_pago: null, status: 'pendente', data_pagamento: null })
+          .eq('id', trx.parcela_id)
+          .eq('user_id', user.id)
+      } else {
+        const { data: parcela } = await supabase
+          .from('parcelas')
+          .select('valor_esperado')
+          .eq('id', trx.parcela_id)
+          .eq('user_id', user.id)
+          .single()
+
+        const novoStatus = parcela && novoTotal >= parcela.valor_esperado ? 'pago' : 'pendente'
+        await supabase
+          .from('parcelas')
+          .update({ valor_pago: novoTotal, status: novoStatus })
+          .eq('id', trx.parcela_id)
+          .eq('user_id', user.id)
+      }
+    } else if (trx.tipo === 'juros_recebido') {
+      await supabase
+        .from('parcelas')
+        .update({ valor_pago: null, status: 'pendente', data_pagamento: null })
+        .eq('id', trx.parcela_id)
+        .eq('user_id', user.id)
+    }
+  }
+
+  const { error } = await supabase
+    .from('transacoes')
+    .delete()
+    .eq('id', transacaoId)
+    .eq('user_id', user.id)
+
+  if (error) throw error
+
+  const { data: parcelasAbertas } = await supabase
+    .from('parcelas')
+    .select('id')
+    .eq('emprestimo_id', emprestimoId)
+    .eq('user_id', user.id)
+    .in('status', ['pendente', 'atrasado'])
+    .limit(1)
+
+  if (parcelasAbertas && parcelasAbertas.length > 0) {
+    await supabase
+      .from('emprestimos')
+      .update({ status: 'ativo' })
+      .eq('id', emprestimoId)
+      .eq('user_id', user.id)
+      .eq('status', 'quitado')
+  }
+
+  revalidatePath(`/emprestimos/${emprestimoId}`)
+  revalidatePath('/parcelas')
+  revalidatePath('/dashboard')
+}
+
+export async function editarTransacao(
+  transacaoId: string,
+  emprestimoId: string,
+  values: {
+    valor: number
+    data: string
+    forma_pagamento?: string
+    observacoes?: string
+  }
+) {
+  const supabase = createClient()
+  const user = await getUser()
+
+  const { data: trx } = await supabase
+    .from('transacoes')
+    .select('tipo, parcela_id')
+    .eq('id', transacaoId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!trx) throw new Error('Transação não encontrada')
+
+  const { error } = await supabase
+    .from('transacoes')
+    .update({
+      valor: values.valor,
+      data: values.data,
+      forma_pagamento: values.forma_pagamento ?? null,
+      observacoes: values.observacoes ?? null,
+    })
+    .eq('id', transacaoId)
+    .eq('user_id', user.id)
+
+  if (error) throw error
+
+  if (trx.parcela_id && trx.tipo === 'principal_recebido') {
+    const { data: todas } = await supabase
+      .from('transacoes')
+      .select('valor')
+      .eq('parcela_id', trx.parcela_id)
+      .eq('tipo', 'principal_recebido')
+      .eq('user_id', user.id)
+
+    const novoTotal = (todas ?? []).reduce((acc, t) => acc + (t.valor as number), 0)
+
+    const { data: parcela } = await supabase
+      .from('parcelas')
+      .select('valor_esperado')
+      .eq('id', trx.parcela_id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (parcela) {
+      const novoStatus = novoTotal >= parcela.valor_esperado ? 'pago' : 'pendente'
+      await supabase
+        .from('parcelas')
+        .update({ valor_pago: novoTotal, status: novoStatus })
+        .eq('id', trx.parcela_id)
+        .eq('user_id', user.id)
+    }
+  }
+
   revalidatePath(`/emprestimos/${emprestimoId}`)
   revalidatePath('/parcelas')
   revalidatePath('/dashboard')

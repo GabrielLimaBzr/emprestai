@@ -23,7 +23,7 @@ const schema = z.object({
   taxa_juros_mensal: z.coerce.number().min(0).max(1),
   data_inicio: z.string().min(1, 'Informe a data de início'),
   data_vencimento: z.string().min(1, 'Informe a data de vencimento'),
-  modalidade: z.enum(['juros_mensais', 'sem_juros']),
+  modalidade: z.enum(['juros_mensais', 'sem_juros', 'parcelado']),
   descricao: z.string().optional(),
   garantia: z.string().optional(),
 })
@@ -134,7 +134,8 @@ export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFor
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="juros_mensais">Juros mensais</SelectItem>
-                  <SelectItem value="sem_juros">Sem juros</SelectItem>
+                  <SelectItem value="sem_juros">Sem juros (lump sum)</SelectItem>
+                  <SelectItem value="parcelado">Parcelado (parcelas fixas)</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -143,7 +144,7 @@ export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFor
       </div>
 
       {/* Taxa de juros */}
-      {watchedValues.modalidade === 'juros_mensais' && (
+      {(watchedValues.modalidade === 'juros_mensais' || watchedValues.modalidade === 'parcelado') && (
         <div className="space-y-2">
           <Label>Taxa de juros mensal *</Label>
           <Controller

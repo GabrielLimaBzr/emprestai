@@ -14,6 +14,9 @@ import {
   updateParcela,
   deleteParcela,
   regenerarParcelasPendentes,
+  getTransacoesByEmprestimo,
+  deletarTransacao,
+  editarTransacao,
 } from '@/app/actions/parcelas'
 import { StatusEmprestimoBadge, StatusParcelaBadge } from '@/components/common/StatusBadge'
 import { PagamentoForm } from '@/components/pagamentos/PagamentoForm'
@@ -25,6 +28,7 @@ import { DateInput } from '@/components/ui/date-input'
 import { InputMoeda } from '@/components/ui/input-moeda'
 import { InputPorcentagem } from '@/components/ui/input-porcentagem'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -39,7 +43,7 @@ import {
   RefreshCw, PencilLine, X, Repeat2,
 } from 'lucide-react'
 import Link from 'next/link'
-import type { Emprestimo, Parcela } from '@/types'
+import type { Emprestimo, Parcela, Transacao } from '@/types'
 
 // ─── Schema edição do contrato ───────────────────────────────────────────────
 const editEmpSchema = z.object({
@@ -47,12 +51,21 @@ const editEmpSchema = z.object({
   taxa_juros_mensal: z.coerce.number().min(0).max(1),
   data_inicio: z.string().min(1),
   data_vencimento: z.string().min(1),
-  modalidade: z.enum(['juros_mensais', 'sem_juros']),
+  modalidade: z.enum(['juros_mensais', 'sem_juros', 'parcelado']),
   descricao: z.string().optional(),
   garantia: z.string().optional(),
   status: z.enum(['ativo', 'quitado', 'inadimplente', 'renegociado']),
 })
 type EditEmpValues = z.infer<typeof editEmpSchema>
+
+// ─── Schema edição de transação ───────────────────────────────────────────────
+const editTransacaoSchema = z.object({
+  valor: z.coerce.number().positive('Informe um valor'),
+  data: z.string().min(1, 'Informe a data'),
+  forma_pagamento: z.enum(['pix', 'dinheiro', 'transferencia', 'cheque']).optional(),
+  observacoes: z.string().optional(),
+})
+type EditTransacaoValues = z.infer<typeof editTransacaoSchema>
 
 // ─── Schema edição de parcela ─────────────────────────────────────────────────
 const editParcelaSchema = z.object({
@@ -87,11 +100,13 @@ export default function EmprestimoDetalhePage() {
 
   const [emprestimo, setEmprestimo] = useState<Emprestimo | null>(null)
   const [parcelas, setParcelas] = useState<Parcela[]>([])
+  const [transacoes, setTransacoes] = useState<Transacao[]>([])
   const [loading, setLoading] = useState(true)
 
   // Modais
   const [pagandoParcela, setPagandoParcela] = useState<Parcela | null>(null)
   const [editandoParcela, setEditandoParcela] = useState<Parcela | null>(null)
+  const [editandoTransacao, setEditandoTransacao] = useState<Transacao | null>(null)
   const [editEmpOpen, setEditEmpOpen] = useState(false)
   const [renegociarOpen, setRenegociarOpen] = useState(false)
 
@@ -99,6 +114,8 @@ export default function EmprestimoDetalhePage() {
   const [pagamentoLoading, setPagamentoLoading] = useState(false)
   const [editEmpLoading, setEditEmpLoading] = useState(false)
   const [editParcelaLoading, setEditParcelaLoading] = useState(false)
+  const [editTransacaoLoading, setEditTransacaoLoading] = useState(false)
+  const [deletarTrxLoading, setDeletarTrxLoading] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [regenerarLoading, setRegenerarLoading] = useState(false)
   const [renegociarLoading, setRenegociarLoading] = useState(false)
@@ -106,6 +123,7 @@ export default function EmprestimoDetalhePage() {
   // ── Forms ──────────────────────────────────────────────────────────────────
   const empForm = useForm<EditEmpValues>({ resolver: zodResolver(editEmpSchema) })
   const parcelaForm = useForm<EditParcelaValues>({ resolver: zodResolver(editParcelaSchema) })
+  const transacaoForm = useForm<EditTransacaoValues>({ resolver: zodResolver(editTransacaoSchema) })
   const renegForm = useForm<RenegociarValues>({
     resolver: zodResolver(renegociarSchema),
     defaultValues: { tipo: 'prorrogar', nova_taxa_juros_mensal: 0 },
@@ -114,12 +132,14 @@ export default function EmprestimoDetalhePage() {
   // ── Carregar dados ─────────────────────────────────────────────────────────
   async function carregar() {
     setLoading(true)
-    const [emp, parc] = await Promise.all([
+    const [emp, parc, trxs] = await Promise.all([
       getEmprestimoById(id),
       getParcelasByEmprestimo(id),
+      getTransacoesByEmprestimo(id),
     ])
     setEmprestimo(emp)
     setParcelas(parc)
+    setTransacoes(trxs)
     setLoading(false)
   }
 
@@ -140,6 +160,17 @@ export default function EmprestimoDetalhePage() {
       })
     }
   }, [editEmpOpen, emprestimo])
+
+  useEffect(() => {
+    if (editandoTransacao) {
+      transacaoForm.reset({
+        valor: editandoTransacao.valor,
+        data: editandoTransacao.data,
+        forma_pagamento: (editandoTransacao.forma_pagamento as EditTransacaoValues['forma_pagamento']) ?? undefined,
+        observacoes: editandoTransacao.observacoes ?? '',
+      })
+    }
+  }, [editandoTransacao])
 
   // Preenche o form de parcela quando o modal abre
   useEffect(() => {
@@ -185,6 +216,34 @@ export default function EmprestimoDetalhePage() {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' })
     } finally {
       setPagamentoLoading(false)
+    }
+  }
+
+  async function handleDeletarTransacao(transacaoId: string) {
+    setDeletarTrxLoading(transacaoId)
+    try {
+      await deletarTransacao(transacaoId, id)
+      toast({ title: 'Transação excluída' })
+      await carregar()
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+    } finally {
+      setDeletarTrxLoading(null)
+    }
+  }
+
+  async function handleEditarTransacao(values: EditTransacaoValues) {
+    if (!editandoTransacao) return
+    setEditTransacaoLoading(true)
+    try {
+      await editarTransacao(editandoTransacao.id, id, values)
+      toast({ title: 'Transação atualizada' })
+      setEditandoTransacao(null)
+      await carregar()
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+    } finally {
+      setEditTransacaoLoading(false)
     }
   }
 
@@ -391,17 +450,19 @@ export default function EmprestimoDetalhePage() {
         </div>
       )}
 
-      {/* ── Parcelas ───────────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Parcelas ({parcelas.length})</CardTitle>
-            {parcelasPendentes.length > 0 && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
-                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                    Regenerar pendentes
+      {/* ── Parcelas + Recebimentos ────────────────────────────────────────── */}
+      <Tabs defaultValue="parcelas">
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="parcelas">Parcelas ({parcelas.length})</TabsTrigger>
+            <TabsTrigger value="transacoes">Recebimentos ({transacoes.length})</TabsTrigger>
+          </TabsList>
+          {parcelasPendentes.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                  Regenerar pendentes
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -422,8 +483,11 @@ export default function EmprestimoDetalhePage() {
               </AlertDialog>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
+        </div>
+
+        <TabsContent value="parcelas" className="mt-2">
+          <Card>
+          <CardContent className="p-0">
           <div className="divide-y divide-border">
             {parcelas.map((p) => (
               <div key={p.id} className="flex items-center px-3 sm:px-6 py-3 gap-2">
@@ -539,8 +603,75 @@ export default function EmprestimoDetalhePage() {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="transacoes" className="mt-2">
+          <Card>
+            <CardContent className="p-0">
+              {transacoes.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8 text-sm">Nenhum recebimento registrado</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {transacoes.map((t) => (
+                    <div key={t.id} className="flex items-center px-3 sm:px-6 py-3 gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium">
+                            {t.tipo === 'principal_recebido' ? 'Principal recebido'
+                              : t.tipo === 'juros_recebido' ? 'Juros recebidos'
+                              : 'Estorno'}
+                          </span>
+                          {t.forma_pagamento && (
+                            <span className="text-xs text-muted-foreground capitalize">{t.forma_pagamento}</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(t.data)}
+                          {t.observacoes && ` · ${t.observacoes}`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <p className="text-sm font-medium tabular-nums mr-1">{formatCurrency(t.valor)}</p>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setEditandoTransacao(t)}>
+                          <PencilLine className="h-3.5 w-3.5" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir transação?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                O efeito desta transação na parcela correspondente será desfeito.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive hover:bg-destructive/90"
+                                onClick={() => handleDeletarTransacao(t.id)}
+                                disabled={deletarTrxLoading === t.id}
+                              >
+                                {deletarTrxLoading === t.id && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* ── Modal: registrar pagamento ─────────────────────────────────────── */}
       <Dialog open={!!pagandoParcela} onOpenChange={(open) => !open && setPagandoParcela(null)}>
@@ -612,7 +743,8 @@ export default function EmprestimoDetalhePage() {
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="juros_mensais">Juros mensais</SelectItem>
-                        <SelectItem value="sem_juros">Sem juros</SelectItem>
+                        <SelectItem value="sem_juros">Sem juros (lump sum)</SelectItem>
+                        <SelectItem value="parcelado">Parcelado (parcelas fixas)</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
@@ -656,6 +788,65 @@ export default function EmprestimoDetalhePage() {
               <Button type="submit" disabled={editEmpLoading}>
                 {editEmpLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Salvar alterações
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: editar transação ───────────────────────────────────────── */}
+      <Dialog open={!!editandoTransacao} onOpenChange={(open) => !open && setEditandoTransacao(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar transação</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={transacaoForm.handleSubmit(handleEditarTransacao)} className="space-y-4 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Valor (R$)</Label>
+                <Controller
+                  name="valor"
+                  control={transacaoForm.control}
+                  render={({ field }) => (
+                    <InputMoeda value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                  )}
+                />
+                {transacaoForm.formState.errors.valor && (
+                  <p className="text-xs text-destructive">{transacaoForm.formState.errors.valor.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Data</Label>
+                <DateInput {...transacaoForm.register('data')} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Forma de pagamento</Label>
+              <Controller
+                name="forma_pagamento"
+                control={transacaoForm.control}
+                render={({ field }) => (
+                  <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pix">PIX</SelectItem>
+                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                      <SelectItem value="transferencia">Transferência</SelectItem>
+                      <SelectItem value="cheque">Cheque</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Observações</Label>
+              <Input placeholder="Opcional..." {...transacaoForm.register('observacoes')} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditandoTransacao(null)}>Cancelar</Button>
+              <Button type="submit" disabled={editTransacaoLoading}>
+                {editTransacaoLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Salvar
               </Button>
             </DialogFooter>
           </form>
