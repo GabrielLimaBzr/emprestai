@@ -10,8 +10,10 @@ import {
   CalendarClock,
   AlertTriangle,
   Percent,
+  Plus,
 } from 'lucide-react'
 import { formatCurrency, formatPercent } from '@/utils/currency'
+import Link from 'next/link'
 
 export default async function DashboardPage() {
   const prefs = await getPreferencias()
@@ -24,9 +26,19 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Visão geral da sua carteira de empréstimos</p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground text-sm">Visão geral da sua carteira de empréstimos</p>
+        </div>
+        <Link
+          href="/emprestimos/novo"
+          className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Novo empréstimo</span>
+          <span className="sm:hidden">Novo</span>
+        </Link>
       </div>
 
       {/* Cards */}
