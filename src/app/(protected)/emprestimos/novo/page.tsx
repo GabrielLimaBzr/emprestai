@@ -42,7 +42,7 @@ export default function NovoEmprestimoPage() {
           <Link href="/emprestimos"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Novo empréstimo</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Novo empréstimo</h1>
           <p className="text-muted-foreground text-sm">Preencha os dados do contrato</p>
         </div>
       </div>
