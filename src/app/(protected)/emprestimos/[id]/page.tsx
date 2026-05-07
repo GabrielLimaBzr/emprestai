@@ -9,6 +9,7 @@ import { getEmprestimoById, updateEmprestimo, deleteEmprestimo, renegociarEmpres
 import {
   getParcelasByEmprestimo,
   registrarPagamento,
+  registrarAbatimentoPrincipal,
   estornarPagamento,
   updateParcela,
   deleteParcela,
@@ -172,7 +173,11 @@ export default function EmprestimoDetalhePage() {
     if (!pagandoParcela) return
     setPagamentoLoading(true)
     try {
-      await registrarPagamento(pagandoParcela.id, id, values)
+      if (pagandoParcela.tipo === 'principal') {
+        await registrarAbatimentoPrincipal(pagandoParcela.id, id, values)
+      } else {
+        await registrarPagamento(pagandoParcela.id, id, values)
+      }
       toast({ title: 'Pagamento registrado!' })
       setPagandoParcela(null)
       await carregar()
@@ -433,6 +438,19 @@ export default function EmprestimoDetalhePage() {
                     Venc. {formatDate(p.data_vencimento)}
                     {p.data_pagamento && ` · Pago em ${formatDate(p.data_pagamento)}`}
                   </p>
+                  {p.tipo === 'principal' && p.valor_pago != null && p.valor_pago > 0 && p.status !== 'pago' && (
+                    <div className="mt-1.5 space-y-0.5">
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(p.valor_pago)} / {formatCurrency(p.valor_esperado)} recebido
+                      </p>
+                      <div className="h-1 w-full rounded-full bg-primary/20 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all"
+                          style={{ width: `${Math.min(100, (p.valor_pago / p.valor_esperado) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
@@ -528,7 +546,9 @@ export default function EmprestimoDetalhePage() {
       <Dialog open={!!pagandoParcela} onOpenChange={(open) => !open && setPagandoParcela(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Registrar pagamento</DialogTitle>
+            <DialogTitle>
+              {pagandoParcela?.tipo === 'principal' ? 'Abater principal' : 'Registrar pagamento'}
+            </DialogTitle>
           </DialogHeader>
           {pagandoParcela && (
             <PagamentoForm

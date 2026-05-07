@@ -116,6 +116,79 @@ export async function registrarPagamento(
   revalidatePath('/dashboard')
 }
 
+export async function registrarAbatimentoPrincipal(
+  parcelaId: string,
+  emprestimoId: string,
+  values: {
+    valor_pago: number
+    data_pagamento: string
+    forma_pagamento: string
+    observacoes?: string
+  }
+) {
+  const supabase = createClient()
+  const user = await getUser()
+
+  const { data: parcela } = await supabase
+    .from('parcelas')
+    .select('valor_esperado, tipo')
+    .eq('id', parcelaId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!parcela) throw new Error('Parcela não encontrada')
+
+  const { data: transacoes } = await supabase
+    .from('transacoes')
+    .select('valor')
+    .eq('parcela_id', parcelaId)
+    .eq('user_id', user.id)
+    .eq('tipo', 'principal_recebido')
+
+  const totalAnterior = (transacoes ?? []).reduce((acc, t) => acc + (t.valor as number), 0)
+  const novoTotal = totalAnterior + values.valor_pago
+
+  const { error: trxErr } = await supabase.from('transacoes').insert({
+    user_id: user.id,
+    emprestimo_id: emprestimoId,
+    parcela_id: parcelaId,
+    tipo: 'principal_recebido',
+    valor: values.valor_pago,
+    data: values.data_pagamento,
+    forma_pagamento: values.forma_pagamento,
+    observacoes: values.observacoes,
+  })
+
+  if (trxErr) throw trxErr
+
+  const quitado = novoTotal >= parcela.valor_esperado
+  const updateParcela: Record<string, unknown> = { valor_pago: novoTotal }
+  if (quitado) {
+    updateParcela.status = 'pago'
+    updateParcela.data_pagamento = values.data_pagamento
+  }
+
+  const { error: parcErr } = await supabase
+    .from('parcelas')
+    .update(updateParcela)
+    .eq('id', parcelaId)
+    .eq('user_id', user.id)
+
+  if (parcErr) throw parcErr
+
+  if (quitado) {
+    await supabase
+      .from('emprestimos')
+      .update({ status: 'quitado' })
+      .eq('id', emprestimoId)
+      .eq('user_id', user.id)
+  }
+
+  revalidatePath(`/emprestimos/${emprestimoId}`)
+  revalidatePath('/parcelas')
+  revalidatePath('/dashboard')
+}
+
 export async function estornarPagamento(parcelaId: string, emprestimoId: string) {
   const supabase = createClient()
   const user = await getUser()
