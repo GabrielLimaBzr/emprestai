@@ -351,6 +351,17 @@ export default function EmprestimoDetalhePage() {
   const parcelasPagas = parcelas.filter(p => p.status === 'pago').length
   const parcelasAtrasadas = parcelas.filter(p => p.status === 'atrasado').length
   const parcelasPendentes = parcelas.filter(p => ['pendente', 'atrasado'].includes(p.status))
+  const principalRecebido = parcelas
+    .filter(p => p.tipo === 'principal' && p.valor_pago != null)
+    .reduce((s, p) => s + (p.valor_pago ?? 0), 0)
+  const progressoPrincipal = emprestimo.valor_principal > 0
+    ? Math.min(100, (principalRecebido / emprestimo.valor_principal) * 100)
+    : 0
+  const modalidadeLabel: Record<string, string> = {
+    juros_mensais: 'Juros mensais',
+    sem_juros: 'Sem juros',
+    parcelado: 'Parcelado',
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -369,6 +380,8 @@ export default function EmprestimoDetalhePage() {
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {formatDate(emprestimo.data_inicio)} → {formatDate(emprestimo.data_vencimento)}
+                <span className="mx-1.5">·</span>
+                <span>{modalidadeLabel[emprestimo.modalidade] ?? emprestimo.modalidade}</span>
               </p>
             </div>
 
@@ -434,6 +447,25 @@ export default function EmprestimoDetalhePage() {
           </Card>
         ))}
       </div>
+
+      {/* ── Progresso de recuperação ───────────────────────────────────────── */}
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Principal recuperado</span>
+            <span className="tabular-nums">
+              <span className="font-medium">{formatCurrency(principalRecebido)}</span>
+              <span className="text-muted-foreground"> / {formatCurrency(emprestimo.valor_principal)} · {progressoPrincipal.toFixed(0)}%</span>
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-primary/20 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${progressoPrincipal}%` }}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {(emprestimo.descricao || emprestimo.garantia) && (
         <div className="flex flex-col sm:flex-row gap-2">
