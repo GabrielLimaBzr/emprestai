@@ -104,11 +104,21 @@ export async function registrarPagamento(
   if (trxErr) throw trxErr
 
   if (parcela.tipo === 'principal' && novoPagamento === 'pago') {
-    await supabase
-      .from('emprestimos')
-      .update({ status: 'quitado' })
-      .eq('id', emprestimoId)
+    const { data: pendentes } = await supabase
+      .from('parcelas')
+      .select('id')
+      .eq('emprestimo_id', emprestimoId)
       .eq('user_id', user.id)
+      .in('status', ['pendente', 'atrasado'])
+      .limit(1)
+
+    if (!pendentes || pendentes.length === 0) {
+      await supabase
+        .from('emprestimos')
+        .update({ status: 'quitado' })
+        .eq('id', emprestimoId)
+        .eq('user_id', user.id)
+    }
   }
 
   revalidatePath(`/emprestimos/${emprestimoId}`)
@@ -177,11 +187,21 @@ export async function registrarAbatimentoPrincipal(
   if (parcErr) throw parcErr
 
   if (quitado) {
-    await supabase
-      .from('emprestimos')
-      .update({ status: 'quitado' })
-      .eq('id', emprestimoId)
+    const { data: pendentes } = await supabase
+      .from('parcelas')
+      .select('id')
+      .eq('emprestimo_id', emprestimoId)
       .eq('user_id', user.id)
+      .in('status', ['pendente', 'atrasado'])
+      .limit(1)
+
+    if (!pendentes || pendentes.length === 0) {
+      await supabase
+        .from('emprestimos')
+        .update({ status: 'quitado' })
+        .eq('id', emprestimoId)
+        .eq('user_id', user.id)
+    }
   }
 
   revalidatePath(`/emprestimos/${emprestimoId}`)

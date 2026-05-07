@@ -452,40 +452,40 @@ export default function EmprestimoDetalhePage() {
 
       {/* ── Parcelas + Recebimentos ────────────────────────────────────────── */}
       <Tabs defaultValue="parcelas">
-        <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="parcelas">Parcelas ({parcelas.length})</TabsTrigger>
-            <TabsTrigger value="transacoes">Recebimentos ({transacoes.length})</TabsTrigger>
-          </TabsList>
-          {parcelasPendentes.length > 0 && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                  Regenerar pendentes
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Regenerar parcelas pendentes?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      As {parcelasPendentes.length} parcelas pendentes/atrasadas serão removidas e recriadas com os dados atuais do contrato (taxa, datas, modalidade). Parcelas pagas são mantidas.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleRegenerarParcelas} disabled={regenerarLoading}>
-                      {regenerarLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Regenerar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-        </div>
+        <TabsList>
+          <TabsTrigger value="parcelas">Parcelas ({parcelas.length})</TabsTrigger>
+          <TabsTrigger value="transacoes">Recebimentos ({transacoes.length})</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="parcelas" className="mt-2">
           <Card>
+            {parcelasPendentes.length > 0 && (
+              <div className="flex justify-end px-4 pt-3 pb-0">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground">
+                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                      Regenerar pendentes
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Regenerar parcelas pendentes?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        As {parcelasPendentes.length} parcelas pendentes/atrasadas serão removidas e recriadas com os dados atuais do contrato (taxa, datas, modalidade). Parcelas pagas são mantidas.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleRegenerarParcelas} disabled={regenerarLoading}>
+                        {regenerarLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Regenerar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
           <CardContent className="p-0">
           <div className="divide-y divide-border">
             {parcelas.map((p) => (
