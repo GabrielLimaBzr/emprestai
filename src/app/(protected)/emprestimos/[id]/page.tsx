@@ -482,7 +482,6 @@ export default function EmprestimoDetalhePage() {
                 </AlertDialogContent>
               </AlertDialog>
             )}
-          </div>
         </div>
 
         <TabsContent value="parcelas" className="mt-2">

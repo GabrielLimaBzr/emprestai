@@ -58,7 +58,7 @@ export async function createEmprestimo(values: {
   taxa_juros_mensal: number
   data_inicio: string
   data_vencimento: string
-  modalidade: 'juros_mensais' | 'sem_juros'
+  modalidade: 'juros_mensais' | 'sem_juros' | 'parcelado'
   descricao?: string
   garantia?: string
 }) {
@@ -117,7 +117,7 @@ export async function updateEmprestimo(
     taxa_juros_mensal?: number
     data_inicio?: string
     data_vencimento?: string
-    modalidade?: 'juros_mensais' | 'sem_juros'
+    modalidade?: 'juros_mensais' | 'sem_juros' | 'parcelado'
     descricao?: string
     garantia?: string
     status?: Emprestimo['status']
