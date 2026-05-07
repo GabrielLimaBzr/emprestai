@@ -4,42 +4,90 @@ import * as React from 'react'
 import { Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+function isoToDisplay(iso: string): string {
+  if (!iso || iso.length !== 10) return ''
+  const [y, m, d] = iso.split('-')
+  if (!y || !m || !d) return ''
+  return `${d}/${m}/${y}`
+}
+
 const DateInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, ...props }, ref) => {
-    const innerRef = React.useRef<HTMLInputElement>(null)
+  ({ className, onChange, onBlur, name, id, defaultValue, disabled }, ref) => {
+    const hiddenRef = React.useRef<HTMLInputElement>(null)
 
     const setRefs = React.useCallback(
       (node: HTMLInputElement | null) => {
-        (innerRef as React.MutableRefObject<HTMLInputElement | null>).current = node
+        (hiddenRef as React.MutableRefObject<HTMLInputElement | null>).current = node
         if (typeof ref === 'function') ref(node)
         else if (ref) (ref as React.MutableRefObject<HTMLInputElement | null>).current = node
       },
       [ref]
     )
 
+    const [display, setDisplay] = React.useState(() => isoToDisplay((defaultValue || '') as string))
+
+    function handleTextChange(e: React.ChangeEvent<HTMLInputElement>) {
+      const digits = e.target.value.replace(/\D/g, '').slice(0, 8)
+      let masked = digits
+      if (digits.length > 2) masked = `${digits.slice(0, 2)}/${digits.slice(2)}`
+      if (digits.length > 4) masked = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+      setDisplay(masked)
+
+      const hidden = hiddenRef.current
+      if (!hidden) return
+
+      if (digits.length === 8) {
+        const d = digits.slice(0, 2), m = digits.slice(2, 4), y = digits.slice(4, 8)
+        hidden.value = `${y}-${m}-${d}`
+      } else {
+        hidden.value = ''
+      }
+      onChange?.({ ...e, target: hidden, currentTarget: hidden })
+    }
+
+    function handlePickerChange(e: React.ChangeEvent<HTMLInputElement>) {
+      setDisplay(isoToDisplay(e.target.value))
+      onChange?.(e)
+    }
+
     function openPicker() {
-      const input = innerRef.current
-      if (!input) return
+      const hidden = hiddenRef.current
+      if (!hidden) return
       try {
-        input.showPicker()
+        hidden.showPicker()
       } catch {
-        input.focus()
-        input.click()
+        hidden.focus()
+        hidden.click()
       }
     }
 
     return (
-      <div className="relative w-full min-w-0">
+      <div className="relative w-full">
         <input
           type="date"
           ref={setRefs}
+          name={name}
+          defaultValue={defaultValue}
+          onChange={handlePickerChange}
+          onBlur={onBlur}
+          disabled={disabled}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only"
+        />
+        <input
+          type="text"
+          id={id}
+          value={display}
+          onChange={handleTextChange}
+          onBlur={onBlur}
+          disabled={disabled}
+          placeholder="DD/MM/AAAA"
+          inputMode="numeric"
           className={cn(
-            'flex h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-            // Esconde o ícone nativo do browser para mostrar só o nosso
-            '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer',
+            'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
             className
           )}
-          {...props}
         />
         <button
           type="button"
