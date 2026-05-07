@@ -41,11 +41,11 @@ export default async function RelatoriosPage() {
       </div>
 
       <Tabs defaultValue="extrato">
-        <TabsList>
-          <TabsTrigger value="extrato">Extrato do mês</TabsTrigger>
-          <TabsTrigger value="projecao">Projeção</TabsTrigger>
-          <TabsTrigger value="inadimplencia">Inadimplência</TabsTrigger>
-          <TabsTrigger value="carteira">Carteira</TabsTrigger>
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 h-auto gap-1 w-full">
+          <TabsTrigger value="extrato" className="text-xs sm:text-sm">Extrato do mês</TabsTrigger>
+          <TabsTrigger value="projecao" className="text-xs sm:text-sm">Projeção</TabsTrigger>
+          <TabsTrigger value="inadimplencia" className="text-xs sm:text-sm">Inadimplência</TabsTrigger>
+          <TabsTrigger value="carteira" className="text-xs sm:text-sm">Carteira</TabsTrigger>
         </TabsList>
 
         {/* Extrato mensal */}

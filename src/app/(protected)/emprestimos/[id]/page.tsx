@@ -781,7 +781,7 @@ function RenegociarForm({
             {errors.valor_amortizado && <p className="text-xs text-destructive">{errors.valor_amortizado.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Data do pagamento</Label>
               <DateInput {...register('data_amortizacao')} />
@@ -819,7 +819,7 @@ function RenegociarForm({
       )}
 
       {/* Nova taxa e vencimento */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>Nova taxa mensal</Label>
           <Controller
