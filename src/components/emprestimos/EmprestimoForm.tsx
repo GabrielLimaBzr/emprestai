@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Combobox } from '@/components/ui/combobox'
 import { DateInput } from '@/components/ui/date-input'
 import { InputMoeda } from '@/components/ui/input-moeda'
 import { InputPorcentagem } from '@/components/ui/input-porcentagem'
@@ -87,18 +88,16 @@ export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFor
           name="tomador_id"
           control={control}
           render={({ field }) => (
-            <Select value={field.value} onValueChange={handleTomadorChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o tomador" />
-              </SelectTrigger>
-              <SelectContent>
-                {tomadores.map(t => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.nome} {t.eh_familiar && '(familiar)'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={tomadores.map(t => ({
+                value: t.id,
+                label: t.nome,
+                badge: t.eh_familiar ? 'familiar' : undefined,
+              }))}
+              value={field.value ?? ''}
+              onChange={handleTomadorChange}
+              placeholder="Buscar tomador..."
+            />
           )}
         />
         {errors.tomador_id && <p className="text-xs text-destructive">{errors.tomador_id.message}</p>}
