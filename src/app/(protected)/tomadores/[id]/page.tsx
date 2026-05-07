@@ -81,37 +81,41 @@ export default function TomadorDetalhePage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-start gap-3">
-        <Button variant="ghost" size="icon" asChild>
+        <Button variant="ghost" size="icon" asChild className="shrink-0 mt-0.5">
           <Link href="/tomadores"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{tomador.nome}</h1>
-          <p className="text-sm text-muted-foreground">{tomador.eh_familiar ? 'Familiar' : 'Externo'}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditMode(!editMode)}>
-            <Pencil className="h-4 w-4 mr-1" />
-            Editar
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-                <Trash2 className="h-4 w-4" />
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold break-words">{tomador.nome}</h1>
+              <p className="text-sm text-muted-foreground">{tomador.eh_familiar ? 'Familiar' : 'Externo'}</p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setEditMode(!editMode)}>
+                <Pencil className="h-4 w-4 mr-1" />
+                Editar
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Remover tomador?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Só é possível remover se não houver empréstimos vinculados.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive">Remover</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remover tomador?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Só é possível remover se não houver empréstimos vinculados.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive">Remover</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -151,12 +155,12 @@ export default function TomadorDetalhePage() {
           ) : (
             <div className="divide-y divide-border">
               {emprestimos.map(e => (
-                <Link key={e.id} href={`/emprestimos/${e.id}`} className="flex items-center justify-between px-6 py-3 hover:bg-secondary/30 transition-colors">
-                  <div>
-                    <p className="text-sm font-medium">{formatCurrency(e.valor_principal)}</p>
+                <Link key={e.id} href={`/emprestimos/${e.id}`} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-3 hover:bg-secondary/30 transition-colors">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium tabular-nums">{formatCurrency(e.valor_principal)}</p>
                     <p className="text-xs text-muted-foreground">{formatDate(e.data_inicio)} → {formatDate(e.data_vencimento)}</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <StatusEmprestimoBadge status={e.status} />
                     <p className="text-xs text-muted-foreground mt-1">{(e.taxa_juros_mensal * 100).toFixed(2)}% a.m.</p>
                   </div>

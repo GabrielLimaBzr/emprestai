@@ -47,7 +47,7 @@ export default function ParcelasPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Parcelas</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Parcelas</h1>
         <p className="text-muted-foreground text-sm">{parcelas.length} parcela{parcelas.length !== 1 ? 's' : ''} no total</p>
       </div>
 
