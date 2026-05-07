@@ -13,15 +13,15 @@ export default async function EmprestimosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Empréstimos</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Empréstimos</h1>
           <p className="text-muted-foreground text-sm">{emprestimos.length} contrato{emprestimos.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button asChild>
+        <Button asChild className="shrink-0">
           <Link href="/emprestimos/novo">
-            <Plus className="mr-2 h-4 w-4" />
-            Novo empréstimo
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Novo empréstimo</span>
           </Link>
         </Button>
       </div>

@@ -36,7 +36,7 @@ export default async function RelatoriosPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Relatórios</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Relatórios</h1>
         <p className="text-muted-foreground text-sm">Análise completa da sua carteira</p>
       </div>
 
@@ -50,7 +50,7 @@ export default async function RelatoriosPage() {
 
         {/* Extrato mensal */}
         <TabsContent value="extrato" className="space-y-4 mt-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold">Recebimentos — {hoje.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</h2>
             <p className="text-lg font-bold text-primary">{formatCurrency(totalMes)}</p>
           </div>
@@ -61,15 +61,15 @@ export default async function RelatoriosPage() {
               ) : (
                 <div className="divide-y divide-border">
                   {transacoesMes.map(t => (
-                    <div key={t.id} className="flex items-center justify-between px-6 py-3">
-                      <div>
-                        <p className="text-sm font-medium">{t.emprestimo?.tomador?.nome}</p>
+                    <div key={t.id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{t.emprestimo?.tomador?.nome}</p>
                         <p className="text-xs text-muted-foreground">
                           {t.tipo === 'juros_recebido' ? 'Juros' : 'Principal'} · {formatDate(t.data)}
                           {t.forma_pagamento && ` · ${t.forma_pagamento}`}
                         </p>
                       </div>
-                      <p className="font-medium text-emerald-400">+{formatCurrency(t.valor)}</p>
+                      <p className="font-medium text-emerald-400 shrink-0 tabular-nums">+{formatCurrency(t.valor)}</p>
                     </div>
                   ))}
                 </div>
@@ -105,7 +105,7 @@ export default async function RelatoriosPage() {
 
         {/* Inadimplência */}
         <TabsContent value="inadimplencia" className="space-y-4 mt-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold">Parcelas em atraso ({parcelasAtrasadas?.length ?? 0})</h2>
             <p className="text-lg font-bold text-red-400">{formatCurrency(totalAtrasado)}</p>
           </div>
@@ -118,14 +118,14 @@ export default async function RelatoriosPage() {
                   {parcelasAtrasadas.map((p: any) => {
                     const diasAtraso = Math.floor((Date.now() - new Date(p.data_vencimento).getTime()) / 86400000)
                     return (
-                      <div key={p.id} className="flex items-center justify-between px-6 py-3">
-                        <div>
-                          <p className="text-sm font-medium">{p.emprestimo?.tomador?.nome}</p>
+                      <div key={p.id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{p.emprestimo?.tomador?.nome}</p>
                           <p className="text-xs text-muted-foreground">
                             Venc. {formatDate(p.data_vencimento)} · <span className="text-red-400">{diasAtraso} dias de atraso</span>
                           </p>
                         </div>
-                        <p className="font-medium text-red-400">{formatCurrency(p.valor_esperado)}</p>
+                        <p className="font-medium text-red-400 shrink-0 tabular-nums">{formatCurrency(p.valor_esperado)}</p>
                       </div>
                     )
                   })}
@@ -159,13 +159,13 @@ export default async function RelatoriosPage() {
             <CardContent className="p-0">
               <div className="divide-y divide-border">
                 {ativos.map(e => (
-                  <div key={e.id} className="flex items-center justify-between px-6 py-3">
-                    <div>
-                      <p className="text-sm font-medium">{(e as any).tomador?.nome}</p>
+                  <div key={e.id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{(e as any).tomador?.nome}</p>
                       <p className="text-xs text-muted-foreground">Venc. {formatDate(e.data_vencimento)}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatCurrency(e.valor_principal)}</p>
+                    <div className="text-right shrink-0">
+                      <p className="font-medium tabular-nums">{formatCurrency(e.valor_principal)}</p>
                       <p className="text-xs text-primary">{(e.taxa_juros_mensal * 100).toFixed(2)}% a.m.</p>
                     </div>
                   </div>

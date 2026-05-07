@@ -421,9 +421,9 @@ export default function EmprestimoDetalhePage() {
         <CardContent className="p-0">
           <div className="divide-y divide-border">
             {parcelas.map((p) => (
-              <div key={p.id} className="flex items-center justify-between px-6 py-3 gap-3">
+              <div key={p.id} className="flex items-center px-3 sm:px-6 py-3 gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">
                       #{p.numero} — {p.tipo === 'juros' ? 'Juros' : 'Principal'}
                     </span>
@@ -435,26 +435,25 @@ export default function EmprestimoDetalhePage() {
                   </p>
                 </div>
 
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-medium">
-                    {p.valor_pago != null
-                      ? formatCurrency(p.valor_pago)
-                      : p.status === 'isento'
-                      ? 'Isento'
-                      : formatCurrency(p.valor_esperado)}
-                  </p>
-                  {p.valor_pago != null && p.valor_pago !== p.valor_esperado && (
-                    <p className="text-xs text-muted-foreground">Esp: {formatCurrency(p.valor_esperado)}</p>
-                  )}
-                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <div className="text-right mr-1">
+                    <p className="text-sm font-medium tabular-nums">
+                      {p.valor_pago != null
+                        ? formatCurrency(p.valor_pago)
+                        : p.status === 'isento'
+                        ? 'Isento'
+                        : formatCurrency(p.valor_esperado)}
+                    </p>
+                    {p.valor_pago != null && p.valor_pago !== p.valor_esperado && (
+                      <p className="text-xs text-muted-foreground">Esp: {formatCurrency(p.valor_esperado)}</p>
+                    )}
+                  </div>
 
-                {/* Ações da parcela */}
-                <div className="flex gap-1 shrink-0">
                   {/* Editar parcela */}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 shrink-0"
                     title="Editar parcela"
                     onClick={() => setEditandoParcela(p)}
                   >
@@ -464,7 +463,7 @@ export default function EmprestimoDetalhePage() {
                   {/* Excluir parcela */}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Remover parcela">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" title="Remover parcela">
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </AlertDialogTrigger>
@@ -484,14 +483,14 @@ export default function EmprestimoDetalhePage() {
                     </AlertDialogContent>
                   </AlertDialog>
 
-                  <Separator orientation="vertical" className="h-6 mx-1 self-center" />
+                  <Separator orientation="vertical" className="h-6 mx-0.5 self-center shrink-0" />
 
                   {p.status === 'pago' ? (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 text-xs">
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Estornar
+                        <Button variant="ghost" size="sm" className="h-8 px-2 shrink-0">
+                          <RotateCcw className="h-3 w-3 sm:mr-1" />
+                          <span className="hidden sm:inline text-xs">Estornar</span>
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -511,11 +510,11 @@ export default function EmprestimoDetalhePage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 text-xs"
+                      className="h-8 px-2 shrink-0"
                       onClick={() => setPagandoParcela(p)}
                     >
-                      <CreditCard className="h-3 w-3 mr-1" />
-                      Pagar
+                      <CreditCard className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline text-xs">Pagar</span>
                     </Button>
                   ) : null}
                 </div>
@@ -548,7 +547,7 @@ export default function EmprestimoDetalhePage() {
             <DialogTitle>Editar contrato</DialogTitle>
           </DialogHeader>
           <form onSubmit={empForm.handleSubmit(handleEditEmp)} className="space-y-4 pt-1">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Valor principal</Label>
                 <Controller
@@ -571,7 +570,7 @@ export default function EmprestimoDetalhePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Data de início</Label>
                 <DateInput {...empForm.register('data_inicio')} />
@@ -582,7 +581,7 @@ export default function EmprestimoDetalhePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Modalidade</Label>
                 <Controller
@@ -652,7 +651,7 @@ export default function EmprestimoDetalhePage() {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={parcelaForm.handleSubmit(handleEditParcela)} className="space-y-4 pt-1">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Valor esperado (R$)</Label>
                 <Controller
