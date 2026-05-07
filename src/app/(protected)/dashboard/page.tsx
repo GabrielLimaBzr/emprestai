@@ -1,4 +1,5 @@
 import { getDashboardStats, getProximosVencimentos, getAlertasInadimplencia, getFluxoMensal } from '@/app/actions/dashboard'
+import { getPreferencias } from '@/app/actions/preferencias'
 import { StatCard } from '@/components/common/StatCard'
 import { FluxoChart } from '@/components/dashboard/FluxoChart'
 import { ProximosVencimentos } from '@/components/dashboard/ProximosVencimentos'
@@ -13,9 +14,10 @@ import {
 import { formatCurrency, formatPercent } from '@/utils/currency'
 
 export default async function DashboardPage() {
+  const prefs = await getPreferencias()
   const [stats, proximosVencimentos, alertas, fluxo] = await Promise.all([
     getDashboardStats(),
-    getProximosVencimentos(),
+    getProximosVencimentos(prefs.dias_antecedencia),
     getAlertasInadimplencia(),
     getFluxoMensal(),
   ])
@@ -71,7 +73,7 @@ export default async function DashboardPage() {
           <FluxoChart data={fluxo} />
         </div>
         <div className="space-y-4">
-          <ProximosVencimentos parcelas={proximosVencimentos} />
+          <ProximosVencimentos parcelas={proximosVencimentos} diasAntecedencia={prefs.dias_antecedencia} />
         </div>
       </div>
 

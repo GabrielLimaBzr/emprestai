@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fundo escuro arredondado (estilo app icon) -->
+  <rect width="512" height="512" rx="108" fill="#0f172a"/>
+
+  <!-- Moeda -->
+  <circle cx="256" cy="256" r="196" fill="#059669"/>
+  <circle cx="256" cy="256" r="172" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="8"/>
+
+  <!-- Letra "e" bold centralizada — emprestAI -->
+  <text
+    x="256"
+    y="340"
+    font-family="system-ui, -apple-system, Arial, sans-serif"
+    font-size="288"
+    font-weight="900"
+    text-anchor="middle"
+    fill="white"
+  >e</text>
+</svg>

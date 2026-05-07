@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { StatusParcelaBadge } from '@/components/common/StatusBadge'
 import { formatCurrency } from '@/utils/currency'
@@ -12,11 +13,29 @@ import { Loader2, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
 import { EmptyState } from '@/components/common/EmptyState'
 
-export default function ParcelasPage() {
+function ParcelasContent() {
+  const router = useRouter()
+  const params = useSearchParams()
+
   const [parcelas, setParcelas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [filtroStatus, setFiltroStatus] = useState<string>('todos')
-  const [filtroBusca, setFiltroBusca] = useState('')
+
+  const filtroStatus = params.get('status') ?? 'todos'
+  const filtroBusca = params.get('busca') ?? ''
+
+  function setFiltroStatus(value: string) {
+    const p = new URLSearchParams(params.toString())
+    if (value === 'todos') p.delete('status')
+    else p.set('status', value)
+    router.replace(`/parcelas?${p.toString()}`)
+  }
+
+  function setFiltroBusca(value: string) {
+    const p = new URLSearchParams(params.toString())
+    if (!value) p.delete('busca')
+    else p.set('busca', value)
+    router.replace(`/parcelas?${p.toString()}`)
+  }
 
   useEffect(() => {
     async function load() {
@@ -51,11 +70,10 @@ export default function ParcelasPage() {
         <p className="text-muted-foreground text-sm">{parcelas.length} parcela{parcelas.length !== 1 ? 's' : ''} no total</p>
       </div>
 
-      {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Input
           placeholder="Buscar por tomador..."
-          value={filtroBusca}
+          defaultValue={filtroBusca}
           onChange={(e) => setFiltroBusca(e.target.value)}
           className="sm:max-w-xs"
         />
@@ -108,5 +126,13 @@ export default function ParcelasPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function ParcelasPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <ParcelasContent />
+    </Suspense>
   )
 }

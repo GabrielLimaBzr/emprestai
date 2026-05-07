@@ -59,18 +59,18 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 }
 
-export async function getProximosVencimentos() {
+export async function getProximosVencimentos(diasAntecedencia = 7) {
   const supabase = createClient()
   const hoje = new Date().toISOString().split('T')[0]
-  const em7Dias = new Date()
-  em7Dias.setDate(em7Dias.getDate() + 7)
+  const limite = new Date()
+  limite.setDate(limite.getDate() + diasAntecedencia)
 
   const { data } = await supabase
     .from('parcelas')
-    .select('*, emprestimo:emprestimos(valor_principal, tomador:tomadores(nome))')
+    .select('*, emprestimo:emprestimos(id, valor_principal, tomador:tomadores(nome))')
     .in('status', ['pendente', 'atrasado'])
     .gte('data_vencimento', hoje)
-    .lte('data_vencimento', em7Dias.toISOString().split('T')[0])
+    .lte('data_vencimento', limite.toISOString().split('T')[0])
     .order('data_vencimento')
     .limit(10)
 
