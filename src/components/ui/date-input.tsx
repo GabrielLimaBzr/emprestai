@@ -73,7 +73,7 @@ const DateInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<H
           disabled={disabled}
           tabIndex={-1}
           aria-hidden="true"
-          className="sr-only"
+          className="absolute inset-0 opacity-0 pointer-events-none"
         />
         <input
           type="text"
