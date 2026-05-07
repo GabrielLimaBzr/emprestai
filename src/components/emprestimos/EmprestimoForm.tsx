@@ -163,12 +163,12 @@ export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFor
 
       {/* Datas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           <Label htmlFor="data_inicio">Data de início *</Label>
           <DateInput id="data_inicio" {...register('data_inicio')} />
           {errors.data_inicio && <p className="text-xs text-destructive">{errors.data_inicio.message}</p>}
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           <Label htmlFor="data_vencimento">Data de vencimento *</Label>
           <DateInput id="data_vencimento" {...register('data_vencimento')} />
           {errors.data_vencimento && <p className="text-xs text-destructive">{errors.data_vencimento.message}</p>}
