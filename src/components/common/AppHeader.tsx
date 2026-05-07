@@ -38,7 +38,7 @@ export function AppHeader({ userEmail }: AppHeaderProps) {
   }
 
   return (
-    <header className="border-b border-border bg-card">
+    <header className="border-b border-border bg-card" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="flex items-center justify-between px-4 h-14">
         {/* Mobile menu button */}
         <button

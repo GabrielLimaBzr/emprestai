@@ -16,7 +16,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <AppHeader userEmail={user.email} />
-          <main className="flex-1 p-6 max-w-[1200px] w-full mx-auto">
+          <main className="flex-1 p-6 max-w-[1200px] w-full mx-auto" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
             {children}
           </main>
         </div>

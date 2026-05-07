@@ -19,7 +19,7 @@ export function AppSidebar() {
   return (
     <aside className="hidden md:flex flex-col w-60 min-h-screen border-r border-border bg-card">
       {/* Logo */}
-      <div className="flex items-center gap-2 px-6 py-5 border-b border-border">
+      <div className="flex items-center gap-2 px-6 py-5 border-b border-border" style={{ paddingTop: 'calc(1.25rem + env(safe-area-inset-top))' }}>
         <div className="p-1.5 bg-primary/10 rounded-md">
           <TrendingUp className="h-5 w-5 text-primary" />
         </div>
