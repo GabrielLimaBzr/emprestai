@@ -40,7 +40,7 @@ import { formatDate } from '@/utils/date'
 import { toast } from '@/hooks/use-toast'
 import {
   ArrowLeft, CreditCard, RotateCcw, Loader2, Pencil, Trash2,
-  RefreshCw, PencilLine, X, Repeat2,
+  RefreshCw, PencilLine, X, Repeat2, Share2,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Emprestimo, Parcela, Transacao } from '@/types'
@@ -386,7 +386,23 @@ export default function EmprestimoDetalhePage() {
             </div>
 
             {/* Ações do contrato */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              {emprestimo.token_extrato && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}/extrato/${emprestimo.token_extrato}`
+                    navigator.clipboard.writeText(url).then(() =>
+                      toast({ title: 'Link copiado!', description: 'Envie para o tomador ver o extrato.', variant: 'success' as any })
+                    )
+                  }}
+                >
+                  <Share2 className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Extrato</span>
+                </Button>
+              )}
+
               <Button variant="outline" size="sm" onClick={() => setEditEmpOpen(true)}>
                 <Pencil className="h-3.5 w-3.5 mr-1.5" />
                 Editar

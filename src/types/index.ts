@@ -30,6 +30,7 @@ export interface Emprestimo {
   modalidade: ModalidadeEmprestimo
   descricao: string | null
   garantia: string | null
+  token_extrato: string
   criado_em: string
   atualizado_em: string
   tomador?: Tomador
