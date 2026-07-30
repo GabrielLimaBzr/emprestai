@@ -63,11 +63,18 @@ export default async function ExtratoPage({ params }: { params: { token: string 
   const ext = data as ExtratoData
   const lista = ext.parcelas ?? []
 
-  const totalParcelas = lista.length
-  const pagas         = lista.filter(p => p.status === 'pago').length
-  const atrasadas     = lista.filter(p => p.status === 'atrasado').length
-  const totalPago     = lista.reduce((s, p) => s + (p.valor_pago ?? 0), 0)
-  const proximaAberta = lista.find(p => p.status === 'pendente' || p.status === 'atrasado')
+  const totalParcelas   = lista.length
+  const pagas           = lista.filter(p => p.status === 'pago').length
+  const atrasadas       = lista.filter(p => p.status === 'atrasado').length
+  const totalPago       = lista.reduce((s, p) => s + (p.valor_pago ?? 0), 0)
+  const proximaAberta   = lista.find(p => p.status === 'pendente' || p.status === 'atrasado')
+
+  const principalPago   = lista
+    .filter(p => p.tipo === 'principal')
+    .reduce((s, p) => s + (p.valor_pago ?? 0), 0)
+  const progressoPct    = ext.valor_principal > 0
+    ? Math.min(100, (principalPago / ext.valor_principal) * 100)
+    : 0
 
   const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
@@ -126,6 +133,23 @@ export default async function ExtratoPage({ params }: { params: { token: string 
               <p className={`font-bold mt-0.5 tabular-nums text-sm ${item.color}`}>{item.value}</p>
             </div>
           ))}
+        </div>
+
+        {/* Progresso do principal */}
+        <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Principal devolvido</span>
+            <span className="tabular-nums font-medium text-foreground">
+              {formatCurrency(principalPago)} / {formatCurrency(ext.valor_principal)}
+            </span>
+          </div>
+          <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all"
+              style={{ width: `${progressoPct}%` }}
+            />
+          </div>
+          <p className="text-xs text-right text-muted-foreground tabular-nums">{progressoPct.toFixed(0)}%</p>
         </div>
 
         {proximaAberta && (
