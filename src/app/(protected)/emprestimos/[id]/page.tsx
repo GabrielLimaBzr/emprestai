@@ -520,7 +520,7 @@ export default function EmprestimoDetalhePage() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Regenerar parcelas pendentes?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        As {parcelasPendentes.length} parcelas pendentes/atrasadas serão removidas e recriadas com os dados atuais do contrato (taxa, datas, modalidade). Parcelas pagas são mantidas.
+                        As parcelas pendentes/atrasadas sem pagamento serão removidas e recriadas com os dados atuais do contrato (taxa, datas, modalidade). Parcelas pagas ou com pagamento parcial são mantidas — o principal já iniciado apenas tem o vencimento remanejado.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
