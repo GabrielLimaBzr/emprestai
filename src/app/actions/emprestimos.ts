@@ -126,16 +126,47 @@ export async function updateEmprestimo(
 ) {
   const supabase = createClient()
   const user = await getUser()
-  const { error } = await supabase
+
+  const { data: anterior } = await supabase
+    .from('emprestimos')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!anterior) throw new Error('Empréstimo não encontrado')
+
+  const { data: atual, error } = await supabase
     .from('emprestimos')
     .update(values)
     .eq('id', id)
     .eq('user_id', user.id)
+    .select()
+    .single()
 
   if (error) throw error
+
+  // Se algum termo que define o cronograma mudou, refletir nas parcelas na
+  // mesma ação — sem depender de o usuário lembrar de "Regenerar pendentes".
+  const TERMOS = ['valor_principal', 'taxa_juros_mensal', 'data_inicio', 'data_vencimento', 'modalidade'] as const
+  const cronogramaMudou = TERMOS.some(campo => anterior[campo] !== atual[campo])
+
+  if (cronogramaMudou) {
+    await sincronizarCronograma(id, user.id, {
+      valor_principal: atual.valor_principal,
+      taxa_juros_mensal: atual.taxa_juros_mensal,
+      data_inicio: atual.data_inicio,
+      data_vencimento: atual.data_vencimento,
+      modalidade: atual.modalidade,
+    })
+    revalidatePath('/parcelas')
+  }
+
   revalidatePath('/emprestimos')
   revalidatePath(`/emprestimos/${id}`)
   revalidatePath('/dashboard')
+
+  return { cronogramaAtualizado: cronogramaMudou }
 }
 
 export async function renegociarEmprestimo(
