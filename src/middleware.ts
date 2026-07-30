@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  if (!user && pathname !== '/login') {
+  if (!user && pathname !== '/login' && !pathname.startsWith('/extrato')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
