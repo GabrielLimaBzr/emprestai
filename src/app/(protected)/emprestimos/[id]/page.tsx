@@ -260,8 +260,13 @@ export default function EmprestimoDetalhePage() {
   async function handleEditEmp(values: EditEmpValues) {
     setEditEmpLoading(true)
     try {
-      await updateEmprestimo(id, values)
-      toast({ title: 'Contrato atualizado!' })
+      const { cronogramaAtualizado } = await updateEmprestimo(id, values)
+      toast({
+        title: 'Contrato atualizado!',
+        description: cronogramaAtualizado
+          ? 'As parcelas em aberto foram ajustadas aos novos dados.'
+          : undefined,
+      })
       setEditEmpOpen(false)
       await carregar()
     } catch (err: any) {
@@ -520,7 +525,7 @@ export default function EmprestimoDetalhePage() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Regenerar parcelas pendentes?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        As {parcelasPendentes.length} parcelas pendentes/atrasadas serão removidas e recriadas com os dados atuais do contrato (taxa, datas, modalidade). Parcelas pagas são mantidas.
+                        As parcelas pendentes/atrasadas sem pagamento serão removidas e recriadas com os dados atuais do contrato (taxa, datas, modalidade). Parcelas pagas ou com pagamento parcial são mantidas — o principal já iniciado apenas tem o vencimento remanejado.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -827,7 +832,7 @@ export default function EmprestimoDetalhePage() {
             </div>
 
             <div className="rounded-md bg-secondary/40 px-3 py-2.5 text-xs text-muted-foreground">
-              Após salvar, use <strong>"Regenerar pendentes"</strong> na lista de parcelas para que elas reflitam os novos dados (taxa, datas).
+              Ao salvar, as parcelas em aberto são ajustadas automaticamente aos novos dados. Parcelas pagas ou com pagamento parcial são preservadas.
             </div>
 
             <DialogFooter>

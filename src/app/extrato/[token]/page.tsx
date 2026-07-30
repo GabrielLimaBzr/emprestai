@@ -3,6 +3,11 @@ import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/date'
 import { notFound } from 'next/navigation'
 
+// O extrato precisa refletir o estado atual do contrato a cada acesso —
+// sem cache de rota nem de dados.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 interface ParcelaExtrato {
   id: string
   numero: number
@@ -187,14 +192,12 @@ export default async function ExtratoPage({ params }: { params: { token: string 
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-medium tabular-nums">
-                    {p.valor_pago != null
-                      ? formatCurrency(p.valor_pago)
-                      : p.status === 'isento'
-                      ? 'Isento'
-                      : formatCurrency(p.valor_esperado)}
+                    {p.status === 'isento' ? 'Isento' : formatCurrency(p.valor_esperado)}
                   </p>
-                  {p.valor_pago != null && p.valor_pago !== p.valor_esperado && (
-                    <p className="text-xs text-muted-foreground">Esp: {formatCurrency(p.valor_esperado)}</p>
+                  {(p.valor_pago ?? 0) > 0 && p.valor_pago !== p.valor_esperado && (
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {formatCurrency(p.valor_pago!)} recebido
+                    </p>
                   )}
                 </div>
               </div>

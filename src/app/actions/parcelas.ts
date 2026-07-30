@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { sincronizarCronograma } from '@/lib/cronograma'
 import type { Parcela, Transacao } from '@/types'
 
 async function getUser() {
@@ -459,41 +460,13 @@ export async function regenerarParcelasPendentes(emprestimoId: string) {
 
   if (!emp) throw new Error('Empréstimo não encontrado')
 
-  await supabase
-    .from('parcelas')
-    .delete()
-    .eq('emprestimo_id', emprestimoId)
-    .eq('user_id', user.id)
-    .in('status', ['pendente', 'atrasado', 'isento'])
-
-  const { data: pagas } = await supabase
-    .from('parcelas')
-    .select('numero')
-    .eq('emprestimo_id', emprestimoId)
-    .eq('user_id', user.id)
-    .eq('status', 'pago')
-    .order('numero', { ascending: false })
-    .limit(1)
-
-  const proximoNumero = pagas && pagas.length > 0 ? pagas[0].numero + 1 : 1
-
-  const { gerarParcelas } = await import('@/utils/juros')
-  const todasParcelas = gerarParcelas(
-    emp.valor_principal,
-    emp.taxa_juros_mensal,
-    emp.data_inicio,
-    emp.data_vencimento,
-    emp.modalidade
-  )
-
-  const novasParcelas = todasParcelas
-    .filter(p => p.numero >= proximoNumero)
-    .map(p => ({ ...p, emprestimo_id: emprestimoId, user_id: user.id }))
-
-  if (novasParcelas.length > 0) {
-    const { error } = await supabase.from('parcelas').insert(novasParcelas)
-    if (error) throw error
-  }
+  await sincronizarCronograma(emprestimoId, user.id, {
+    valor_principal: emp.valor_principal,
+    taxa_juros_mensal: emp.taxa_juros_mensal,
+    data_inicio: emp.data_inicio,
+    data_vencimento: emp.data_vencimento,
+    modalidade: emp.modalidade,
+  })
 
   revalidatePath(`/emprestimos/${emprestimoId}`)
   revalidatePath('/parcelas')

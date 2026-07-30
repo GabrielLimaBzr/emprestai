@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { gerarParcelas } from '@/utils/juros'
+import { sincronizarCronograma } from '@/lib/cronograma'
 import type { Emprestimo, EmprestimoResumo } from '@/types'
 
 async function getUser() {
@@ -125,16 +126,47 @@ export async function updateEmprestimo(
 ) {
   const supabase = createClient()
   const user = await getUser()
-  const { error } = await supabase
+
+  const { data: anterior } = await supabase
+    .from('emprestimos')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!anterior) throw new Error('Empréstimo não encontrado')
+
+  const { data: atual, error } = await supabase
     .from('emprestimos')
     .update(values)
     .eq('id', id)
     .eq('user_id', user.id)
+    .select()
+    .single()
 
   if (error) throw error
+
+  // Se algum termo que define o cronograma mudou, refletir nas parcelas na
+  // mesma ação — sem depender de o usuário lembrar de "Regenerar pendentes".
+  const TERMOS = ['valor_principal', 'taxa_juros_mensal', 'data_inicio', 'data_vencimento', 'modalidade'] as const
+  const cronogramaMudou = TERMOS.some(campo => anterior[campo] !== atual[campo])
+
+  if (cronogramaMudou) {
+    await sincronizarCronograma(id, user.id, {
+      valor_principal: atual.valor_principal,
+      taxa_juros_mensal: atual.taxa_juros_mensal,
+      data_inicio: atual.data_inicio,
+      data_vencimento: atual.data_vencimento,
+      modalidade: atual.modalidade,
+    })
+    revalidatePath('/parcelas')
+  }
+
   revalidatePath('/emprestimos')
   revalidatePath(`/emprestimos/${id}`)
   revalidatePath('/dashboard')
+
+  return { cronogramaAtualizado: cronogramaMudou }
 }
 
 export async function renegociarEmprestimo(
@@ -188,45 +220,21 @@ export async function renegociarEmprestimo(
     status: 'ativo',
   }).eq('id', id).eq('user_id', user.id)
 
-  // 3. Remover todas as parcelas pendentes/atrasadas (incluindo o principal futuro)
-  await supabase.from('parcelas').delete()
-    .eq('emprestimo_id', id)
-    .eq('user_id', user.id)
-    .in('status', ['pendente', 'atrasado', 'isento'])
-
-  // 4. Descobrir próximo número de parcela
-  const { data: pagas } = await supabase
-    .from('parcelas')
-    .select('numero')
-    .eq('emprestimo_id', id)
-    .eq('user_id', user.id)
-    .order('numero', { ascending: false })
-    .limit(1)
-
-  const proximoNumero = pagas && pagas.length > 0 ? pagas[0].numero + 1 : 1
-
-  // 5. Gerar novas parcelas a partir de hoje
-  const { gerarParcelas } = await import('@/utils/juros')
+  // 3. Reconstruir o cronograma a partir de hoje, preservando o histórico
+  //    financeiro (parcelas pagas ou com pagamento parcial).
   const hoje = new Date().toISOString().split('T')[0]
-  const novasParcelas = gerarParcelas(
-    novoPrincipal,
-    values.nova_taxa_juros_mensal,
-    hoje,
-    values.nova_data_vencimento,
-    emp.modalidade
+  await sincronizarCronograma(
+    id,
+    user.id,
+    {
+      valor_principal: novoPrincipal,
+      taxa_juros_mensal: values.nova_taxa_juros_mensal,
+      data_inicio: emp.data_inicio,
+      data_vencimento: values.nova_data_vencimento,
+      modalidade: emp.modalidade,
+    },
+    { dataInicioGeracao: hoje }
   )
-
-  const parcelasToInsert = novasParcelas.map((p, i) => ({
-    ...p,
-    numero: proximoNumero + i,
-    emprestimo_id: id,
-    user_id: user.id,
-  }))
-
-  if (parcelasToInsert.length > 0) {
-    const { error } = await supabase.from('parcelas').insert(parcelasToInsert)
-    if (error) throw error
-  }
 
   revalidatePath(`/emprestimos/${id}`)
   revalidatePath('/emprestimos')
