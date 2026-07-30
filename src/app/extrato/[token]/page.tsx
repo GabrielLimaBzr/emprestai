@@ -112,11 +112,6 @@ export default async function ExtratoPage({ params }: { params: { token: string 
             </div>
           </div>
 
-          {ext.descricao && (
-            <p className="text-xs text-muted-foreground bg-secondary/40 rounded-md px-3 py-2">
-              {ext.descricao}
-            </p>
-          )}
         </div>
 
         {/* Resumo numérico */}
