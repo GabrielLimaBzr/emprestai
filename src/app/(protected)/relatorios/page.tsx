@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency, formatPercent } from '@/utils/currency'
@@ -53,8 +55,13 @@ export default async function RelatoriosPage() {
 
   // Atraso arrastado de meses anteriores não entra no previsto do mês, mas é
   // dinheiro devido — vale sinalizar sem misturar com o cálculo.
-  const atrasadoAnterior = (parcelasAtrasadas ?? []).filter(p => p.data_vencimento < inicioMes)
+  const atrasadoAnterior = ((parcelasAtrasadas ?? []) as any[])
+    .filter(p => p.data_vencimento < inicioMes)
+    .sort((a, b) => (a.data_vencimento < b.data_vencimento ? -1 : 1))
   const totalAtrasadoAnterior = atrasadoAnterior.reduce((s, p) => s + saldoAberto(p), 0)
+
+  const diasDeAtraso = (dataVencimento: string) =>
+    Math.floor((hoje.getTime() - new Date(dataVencimento).getTime()) / 86400000)
 
   return (
     <div className="space-y-6">
@@ -124,14 +131,39 @@ export default async function RelatoriosPage() {
           )}
 
           {totalAtrasadoAnterior > 0 && (
-            <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">
-                Fora do mês: {atrasadoAnterior.length} parcela{atrasadoAnterior.length !== 1 ? 's' : ''} em atraso de meses anteriores
-              </p>
-              <p className="text-sm font-bold text-danger tabular-nums">
-                {formatCurrency(totalAtrasadoAnterior)}
-              </p>
-            </div>
+            <details className="group rounded-lg border border-danger/30 bg-danger/5">
+              <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
+                  Fora do mês: {atrasadoAnterior.length} parcela{atrasadoAnterior.length !== 1 ? 's' : ''} em atraso de meses anteriores
+                </p>
+                <p className="text-sm font-bold text-danger tabular-nums">
+                  {formatCurrency(totalAtrasadoAnterior)}
+                </p>
+              </summary>
+
+              <div className="divide-y divide-danger/15 border-t border-danger/20">
+                {atrasadoAnterior.map(p => (
+                  <Link
+                    key={p.id}
+                    href={`/emprestimos/${p.emprestimo?.id}`}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-danger/5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{p.emprestimo?.tomador?.nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.tipo === 'juros' ? 'Juros' : 'Principal'} · Venc. {formatDate(p.data_vencimento)}
+                        {' · '}
+                        <span className="text-danger">{diasDeAtraso(p.data_vencimento)} dias</span>
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-sm font-medium text-danger tabular-nums">
+                      {formatCurrency(saldoAberto(p))}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </details>
           )}
 
           <Card>
