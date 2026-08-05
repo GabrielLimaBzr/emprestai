@@ -19,11 +19,19 @@ export default async function RelatoriosPage() {
     { data: transacoesMes },
     { data: parcelasPendentes },
     { data: parcelasAtrasadas },
+    { data: parcelasDoMes },
   ] = await Promise.all([
     supabase.from('emprestimos').select('*, tomador:tomadores(nome)').eq('status', 'ativo'),
     supabase.from('transacoes').select('*, emprestimo:emprestimos(tomador:tomadores(nome))').gte('data', inicioMes).lte('data', fimMes).neq('tipo', 'estorno'),
     supabase.from('parcelas').select('*').eq('status', 'pendente').eq('tipo', 'juros'),
     supabase.from('parcelas').select('*, emprestimo:emprestimos(id, tomador:tomadores(nome))').eq('status', 'atrasado'),
+    supabase
+      .from('parcelas')
+      .select('*, emprestimo:emprestimos(id, tomador:tomadores(nome))')
+      .in('status', ['pendente', 'atrasado'])
+      .gte('data_vencimento', inicioMes)
+      .lte('data_vencimento', fimMes)
+      .order('data_vencimento'),
   ])
 
   const ativos = emprestimosAtivos as Emprestimo[] ?? []
@@ -32,6 +40,21 @@ export default async function RelatoriosPage() {
 
   const totalMes = transacoesMes?.reduce((s, t) => s + t.valor, 0) ?? 0
   const totalAtrasado = parcelasAtrasadas?.reduce((s, p) => s + p.valor_esperado, 0) ?? 0
+
+  // O que ainda falta entrar dentro do mês corrente. Em parcela com pagamento
+  // parcial, só o saldo restante conta como "a receber".
+  const saldoAberto = (p: { valor_esperado: number; valor_pago: number | null }) =>
+    Math.max(0, p.valor_esperado - (p.valor_pago ?? 0))
+
+  const aReceberMes = (parcelasDoMes ?? []) as any[]
+  const totalAReceberMes = aReceberMes.reduce((s, p) => s + saldoAberto(p), 0)
+  const previstoMes = totalMes + totalAReceberMes
+  const pctRecebido = previstoMes > 0 ? (totalMes / previstoMes) * 100 : 0
+
+  // Atraso arrastado de meses anteriores não entra no previsto do mês, mas é
+  // dinheiro devido — vale sinalizar sem misturar com o cálculo.
+  const atrasadoAnterior = (parcelasAtrasadas ?? []).filter(p => p.data_vencimento < inicioMes)
+  const totalAtrasadoAnterior = atrasadoAnterior.reduce((s, p) => s + saldoAberto(p), 0)
 
   return (
     <div className="space-y-6">
@@ -50,11 +73,74 @@ export default async function RelatoriosPage() {
 
         {/* Extrato mensal */}
         <TabsContent value="extrato" className="space-y-4 mt-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-semibold">Recebimentos — {hoje.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</h2>
-            <p className="text-lg font-bold text-primary">{formatCurrency(totalMes)}</p>
+          <h2 className="font-semibold capitalize">
+            {hoje.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}
+          </h2>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Card>
+              <CardContent className="p-4 space-y-1">
+                <p className="text-xs text-muted-foreground">Já recebido</p>
+                <p className="text-lg sm:text-xl font-bold text-emerald-400 tabular-nums">
+                  {formatCurrency(totalMes)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 space-y-1">
+                <p className="text-xs text-muted-foreground">A receber</p>
+                <p className="text-lg sm:text-xl font-bold text-amber-400 tabular-nums">
+                  {formatCurrency(totalAReceberMes)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="col-span-2 sm:col-span-1">
+              <CardContent className="p-4 space-y-1">
+                <p className="text-xs text-muted-foreground">Previsto no mês</p>
+                <p className="text-lg sm:text-xl font-bold text-primary tabular-nums">
+                  {formatCurrency(previstoMes)}
+                </p>
+              </CardContent>
+            </Card>
           </div>
+
+          {previstoMes > 0 && (
+            <Card>
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Progresso do mês</span>
+                  <span className="tabular-nums font-medium text-foreground">
+                    {pctRecebido.toFixed(0)}% recebido
+                  </span>
+                </div>
+                <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-emerald-500"
+                    style={{ width: `${Math.min(100, pctRecebido)}%` }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {totalAtrasadoAnterior > 0 && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Fora do mês: {atrasadoAnterior.length} parcela{atrasadoAnterior.length !== 1 ? 's' : ''} em atraso de meses anteriores
+              </p>
+              <p className="text-sm font-bold text-red-400 tabular-nums">
+                {formatCurrency(totalAtrasadoAnterior)}
+              </p>
+            </div>
+          )}
+
           <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-base">Recebimentos ({transacoesMes?.length ?? 0})</CardTitle>
+                <p className="font-bold text-emerald-400 tabular-nums">{formatCurrency(totalMes)}</p>
+              </div>
+            </CardHeader>
             <CardContent className="p-0">
               {!transacoesMes?.length ? (
                 <p className="text-sm text-muted-foreground text-center py-8">Nenhum recebimento neste mês.</p>
@@ -72,6 +158,43 @@ export default async function RelatoriosPage() {
                       <p className="font-medium text-emerald-400 shrink-0 tabular-nums">+{formatCurrency(t.valor)}</p>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-base">A receber ({aReceberMes.length})</CardTitle>
+                <p className="font-bold text-amber-400 tabular-nums">{formatCurrency(totalAReceberMes)}</p>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {aReceberMes.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Tudo recebido neste mês!
+                </p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {aReceberMes.map(p => {
+                    const parcial = (p.valor_pago ?? 0) > 0
+                    return (
+                      <div key={p.id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{p.emprestimo?.tomador?.nome}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {p.tipo === 'juros' ? 'Juros' : 'Principal'} · Venc. {formatDate(p.data_vencimento)}
+                            {p.status === 'atrasado' && <span className="text-red-400"> · atrasado</span>}
+                            {parcial && ` · ${formatCurrency(p.valor_pago)} já recebido`}
+                          </p>
+                        </div>
+                        <p className={`font-medium shrink-0 tabular-nums ${p.status === 'atrasado' ? 'text-red-400' : 'text-amber-400'}`}>
+                          {formatCurrency(saldoAberto(p))}
+                        </p>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </CardContent>
