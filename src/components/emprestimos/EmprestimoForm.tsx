@@ -35,9 +35,11 @@ interface EmprestimoFormProps {
   tomadores: Tomador[]
   onSubmit: (values: FormValues) => Promise<void>
   isLoading?: boolean
+  /** Cria um tomador só com o nome digitado, para não interromper o cadastro. */
+  onCreateTomador?: (nome: string) => Promise<Tomador>
 }
 
-export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFormProps) {
+export function EmprestimoForm({ tomadores, onSubmit, isLoading, onCreateTomador }: EmprestimoFormProps) {
   const [previewParcelas, setPreviewParcelas] = useState<ReturnType<typeof gerarParcelas>>([])
 
   const { control, register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
@@ -61,13 +63,20 @@ export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFor
     }
   }, [watchedValues.valor_principal, watchedValues.taxa_juros_mensal, watchedValues.data_inicio, watchedValues.data_vencimento, watchedValues.modalidade])
 
-  function handleTomadorChange(id: string) {
-    setValue('tomador_id', id)
-    const tomador = tomadores.find(t => t.id === id)
-    if (tomador?.eh_familiar) {
+  function handleTomadorChange(id: string, tomador?: Tomador) {
+    setValue('tomador_id', id, { shouldValidate: true })
+    const escolhido = tomador ?? tomadores.find(t => t.id === id)
+    if (escolhido?.eh_familiar) {
       setValue('modalidade', 'sem_juros')
       setValue('taxa_juros_mensal', 0)
     }
+  }
+
+  async function handleCreateTomador(nome: string) {
+    if (!onCreateTomador) return
+    const novo = await onCreateTomador(nome)
+    handleTomadorChange(novo.id, novo)
+    return novo.id
   }
 
   const meses = watchedValues.data_inicio && watchedValues.data_vencimento
@@ -97,6 +106,8 @@ export function EmprestimoForm({ tomadores, onSubmit, isLoading }: EmprestimoFor
               value={field.value ?? ''}
               onChange={handleTomadorChange}
               placeholder="Buscar tomador..."
+              onCreate={onCreateTomador ? handleCreateTomador : undefined}
+              createLabel={(nome) => `Criar tomador "${nome}"`}
             />
           )}
         />
