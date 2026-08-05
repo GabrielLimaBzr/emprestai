@@ -52,6 +52,12 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // Semânticas: mudam de tom entre os temas, então nunca use
+        // emerald-400/red-400/amber-400 direto — só leem bem no escuro.
+        success: 'hsl(var(--success) / <alpha-value>)',
+        warning: 'hsl(var(--warning) / <alpha-value>)',
+        danger: 'hsl(var(--danger) / <alpha-value>)',
+        info: 'hsl(var(--info) / <alpha-value>)',
         emerald: {
           50: '#ecfdf5',
           100: '#d1fae5',

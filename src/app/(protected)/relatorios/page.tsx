@@ -81,7 +81,7 @@ export default async function RelatoriosPage() {
             <Card>
               <CardContent className="p-4 space-y-1">
                 <p className="text-xs text-muted-foreground">Já recebido</p>
-                <p className="text-lg sm:text-xl font-bold text-emerald-400 tabular-nums">
+                <p className="text-lg sm:text-xl font-bold text-success tabular-nums">
                   {formatCurrency(totalMes)}
                 </p>
               </CardContent>
@@ -89,7 +89,7 @@ export default async function RelatoriosPage() {
             <Card>
               <CardContent className="p-4 space-y-1">
                 <p className="text-xs text-muted-foreground">A receber</p>
-                <p className="text-lg sm:text-xl font-bold text-amber-400 tabular-nums">
+                <p className="text-lg sm:text-xl font-bold text-warning tabular-nums">
                   {formatCurrency(totalAReceberMes)}
                 </p>
               </CardContent>
@@ -115,7 +115,7 @@ export default async function RelatoriosPage() {
                 </div>
                 <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-emerald-500"
+                    className="h-full rounded-full bg-success"
                     style={{ width: `${Math.min(100, pctRecebido)}%` }}
                   />
                 </div>
@@ -124,11 +124,11 @@ export default async function RelatoriosPage() {
           )}
 
           {totalAtrasadoAnterior > 0 && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
                 Fora do mês: {atrasadoAnterior.length} parcela{atrasadoAnterior.length !== 1 ? 's' : ''} em atraso de meses anteriores
               </p>
-              <p className="text-sm font-bold text-red-400 tabular-nums">
+              <p className="text-sm font-bold text-danger tabular-nums">
                 {formatCurrency(totalAtrasadoAnterior)}
               </p>
             </div>
@@ -138,7 +138,7 @@ export default async function RelatoriosPage() {
             <CardHeader className="pb-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle className="text-base">Recebimentos ({transacoesMes?.length ?? 0})</CardTitle>
-                <p className="font-bold text-emerald-400 tabular-nums">{formatCurrency(totalMes)}</p>
+                <p className="font-bold text-success tabular-nums">{formatCurrency(totalMes)}</p>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -155,7 +155,7 @@ export default async function RelatoriosPage() {
                           {t.forma_pagamento && ` · ${t.forma_pagamento}`}
                         </p>
                       </div>
-                      <p className="font-medium text-emerald-400 shrink-0 tabular-nums">+{formatCurrency(t.valor)}</p>
+                      <p className="font-medium text-success shrink-0 tabular-nums">+{formatCurrency(t.valor)}</p>
                     </div>
                   ))}
                 </div>
@@ -167,7 +167,7 @@ export default async function RelatoriosPage() {
             <CardHeader className="pb-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle className="text-base">A receber ({aReceberMes.length})</CardTitle>
-                <p className="font-bold text-amber-400 tabular-nums">{formatCurrency(totalAReceberMes)}</p>
+                <p className="font-bold text-warning tabular-nums">{formatCurrency(totalAReceberMes)}</p>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -185,11 +185,11 @@ export default async function RelatoriosPage() {
                           <p className="text-sm font-medium truncate">{p.emprestimo?.tomador?.nome}</p>
                           <p className="text-xs text-muted-foreground">
                             {p.tipo === 'juros' ? 'Juros' : 'Principal'} · Venc. {formatDate(p.data_vencimento)}
-                            {p.status === 'atrasado' && <span className="text-red-400"> · atrasado</span>}
+                            {p.status === 'atrasado' && <span className="text-danger"> · atrasado</span>}
                             {parcial && ` · ${formatCurrency(p.valor_pago)} já recebido`}
                           </p>
                         </div>
-                        <p className={`font-medium shrink-0 tabular-nums ${p.status === 'atrasado' ? 'text-red-400' : 'text-amber-400'}`}>
+                        <p className={`font-medium shrink-0 tabular-nums ${p.status === 'atrasado' ? 'text-danger' : 'text-warning'}`}>
                           {formatCurrency(saldoAberto(p))}
                         </p>
                       </div>
@@ -230,7 +230,7 @@ export default async function RelatoriosPage() {
         <TabsContent value="inadimplencia" className="space-y-4 mt-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold">Parcelas em atraso ({parcelasAtrasadas?.length ?? 0})</h2>
-            <p className="text-lg font-bold text-red-400">{formatCurrency(totalAtrasado)}</p>
+            <p className="text-lg font-bold text-danger">{formatCurrency(totalAtrasado)}</p>
           </div>
           <Card>
             <CardContent className="p-0">
@@ -245,10 +245,10 @@ export default async function RelatoriosPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{p.emprestimo?.tomador?.nome}</p>
                           <p className="text-xs text-muted-foreground">
-                            Venc. {formatDate(p.data_vencimento)} · <span className="text-red-400">{diasAtraso} dias de atraso</span>
+                            Venc. {formatDate(p.data_vencimento)} · <span className="text-danger">{diasAtraso} dias de atraso</span>
                           </p>
                         </div>
-                        <p className="font-medium text-red-400 shrink-0 tabular-nums">{formatCurrency(p.valor_esperado)}</p>
+                        <p className="font-medium text-danger shrink-0 tabular-nums">{formatCurrency(p.valor_esperado)}</p>
                       </div>
                     )
                   })}

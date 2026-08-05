@@ -3,7 +3,11 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* Tema escuro (padrão) */
+  :root,
+  .dark {
+    color-scheme: dark;
+
     --background: 222 47% 6%;
     --foreground: 210 40% 95%;
     --card: 222 47% 9%;
@@ -24,6 +28,44 @@
     --input: 222 30% 18%;
     --ring: 160 84% 39%;
     --radius: 0.5rem;
+
+    /* Cores semânticas — claras o bastante para ler sobre fundo escuro */
+    --success: 160 64% 52%;
+    --warning: 43 96% 56%;
+    --danger: 0 91% 71%;
+    --info: 213 94% 68%;
+  }
+
+  /* Tema claro — "campo de algodão": âmbar dessaturado, quente e neutro.
+     Qualificado com `html` para vencer o `:root` acima sem depender da ordem. */
+  html.light {
+    color-scheme: light;
+
+    --background: 40 33% 96%;
+    --foreground: 30 14% 16%;
+    --card: 42 46% 99%;
+    --card-foreground: 30 14% 16%;
+    --popover: 42 46% 99%;
+    --popover-foreground: 30 14% 16%;
+    --primary: 160 72% 29%;
+    --primary-foreground: 42 46% 99%;
+    --secondary: 40 26% 91%;
+    --secondary-foreground: 30 14% 20%;
+    --muted: 40 26% 91%;
+    --muted-foreground: 34 10% 42%;
+    --accent: 160 72% 29%;
+    --accent-foreground: 42 46% 99%;
+    --destructive: 0 68% 45%;
+    --destructive-foreground: 42 46% 99%;
+    --border: 38 22% 86%;
+    --input: 38 22% 86%;
+    --ring: 160 72% 29%;
+
+    /* Escurecidas para manter contraste sobre o creme */
+    --success: 160 84% 26%;
+    --warning: 32 88% 36%;
+    --danger: 0 68% 44%;
+    --info: 217 76% 42%;
   }
 }
 
