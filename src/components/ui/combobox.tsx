@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import * as PopoverPrimitive from '@radix-ui/react-popover'
-import { Check, ChevronsUpDown, Search } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2, Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ComboboxOption {
@@ -16,11 +16,23 @@ interface ComboboxProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  /** Cria um registro a partir do texto digitado e devolve o valor a selecionar. */
+  onCreate?: (label: string) => Promise<string | void> | string | void
+  /** Texto do atalho de criação, ex: `nome => \`Criar "${nome}"\``. */
+  createLabel?: (label: string) => string
 }
 
-export function Combobox({ options, value, onChange, placeholder = 'Selecione...' }: ComboboxProps) {
+export function Combobox({
+  options,
+  value,
+  onChange,
+  placeholder = 'Selecione...',
+  onCreate,
+  createLabel = (label) => `Criar "${label}"`,
+}: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
+  const [criando, setCriando] = React.useState(false)
 
   const selected = options.find(o => o.value === value)
 
@@ -28,8 +40,32 @@ export function Combobox({ options, value, onChange, placeholder = 'Selecione...
     ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
     : options
 
+  const termo = query.trim()
+  const jaExiste = options.some(o => o.label.trim().toLowerCase() === termo.toLowerCase())
+  const podeCriar = Boolean(onCreate) && termo.length > 0 && !jaExiste
+
+  async function handleCreate() {
+    if (!onCreate || criando) return
+    setCriando(true)
+    try {
+      const novoValor = await onCreate(termo)
+      if (typeof novoValor === 'string') onChange(novoValor)
+      setOpen(false)
+      setQuery('')
+    } finally {
+      setCriando(false)
+    }
+  }
+
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={(next) => { setOpen(next); if (!next) setQuery('') }}>
+    <PopoverPrimitive.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (criando) return
+        setOpen(next)
+        if (!next) setQuery('')
+      }}
+    >
       <PopoverPrimitive.Trigger asChild>
         <button
           type="button"
@@ -67,12 +103,20 @@ export function Combobox({ options, value, onChange, placeholder = 'Selecione...
               placeholder="Buscar..."
               value={query}
               onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && podeCriar && filtered.length === 0) {
+                  e.preventDefault()
+                  handleCreate()
+                }
+              }}
               autoFocus
             />
           </div>
           <div className="max-h-60 overflow-y-auto p-1">
             {filtered.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Nenhum resultado encontrado.</p>
+              !podeCriar && (
+                <p className="py-6 text-center text-sm text-muted-foreground">Nenhum resultado encontrado.</p>
+              )
             ) : (
               filtered.map(option => (
                 <button
@@ -96,6 +140,24 @@ export function Combobox({ options, value, onChange, placeholder = 'Selecione...
                   )}
                 </button>
               ))
+            )}
+
+            {podeCriar && (
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={criando}
+                className={cn(
+                  'mt-1 flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm outline-none',
+                  'text-primary hover:bg-accent disabled:opacity-60',
+                  filtered.length > 0 && 'border-t border-border/60 pt-2'
+                )}
+              >
+                {criando
+                  ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                  : <Plus className="h-4 w-4 shrink-0" />}
+                <span className="truncate">{createLabel(termo)}</span>
+              </button>
             )}
           </div>
         </PopoverPrimitive.Content>

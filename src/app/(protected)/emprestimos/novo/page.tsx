@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { EmprestimoForm } from '@/components/emprestimos/EmprestimoForm'
-import { getTomadores } from '@/app/actions/tomadores'
+import { getTomadores, createTomador } from '@/app/actions/tomadores'
 import { createEmprestimo } from '@/app/actions/emprestimos'
 import { toast } from '@/hooks/use-toast'
 import { ArrowLeft } from 'lucide-react'
@@ -21,6 +21,30 @@ export default function NovoEmprestimoPage() {
   useEffect(() => {
     getTomadores().then(setTomadores)
   }, [])
+
+  // Cadastro mínimo a partir do nome digitado — o resto dos dados pode ser
+  // completado depois em Tomadores, sem interromper a criação do contrato.
+  async function handleCreateTomador(nome: string) {
+    const tomador = await createTomador({
+      nome,
+      telefone: null,
+      email: null,
+      cpf: null,
+      eh_familiar: false,
+      observacoes: null,
+    })
+
+    setTomadores(prev =>
+      [...prev, tomador].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    )
+    toast({
+      title: 'Tomador criado!',
+      description: `${tomador.nome} já está selecionado. Complete os dados depois em Tomadores.`,
+      variant: 'success' as any,
+    })
+
+    return tomador
+  }
 
   async function handleSubmit(values: any) {
     setIsLoading(true)
@@ -54,6 +78,7 @@ export default function NovoEmprestimoPage() {
             tomadores={tomadores}
             onSubmit={handleSubmit}
             isLoading={isLoading}
+            onCreateTomador={handleCreateTomador}
           />
         </CardContent>
       </Card>
