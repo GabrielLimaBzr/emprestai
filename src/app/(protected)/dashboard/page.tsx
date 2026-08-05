@@ -68,7 +68,7 @@ export default async function DashboardPage() {
           description={stats.contratosInadimplentes > 0 ? 'Atenção necessária' : 'Tudo em dia'}
           icon={AlertTriangle}
           trend={stats.contratosInadimplentes > 0 ? 'down' : 'up'}
-          iconClassName={stats.contratosInadimplentes > 0 ? 'bg-red-500/10' : undefined}
+          iconClassName={stats.contratosInadimplentes > 0 ? 'bg-danger/10' : undefined}
         />
         <StatCard
           title="Rentabilidade"

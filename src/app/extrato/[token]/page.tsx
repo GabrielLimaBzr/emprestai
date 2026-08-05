@@ -34,16 +34,16 @@ interface ExtratoData {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    pago:         { label: 'Pago',         cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
-    pendente:     { label: 'Pendente',     cls: 'bg-blue-500/10   text-blue-400   border-blue-500/20' },
-    atrasado:     { label: 'Atrasado',     cls: 'bg-red-500/15    text-red-400    border-red-500/30' },
-    isento:       { label: 'Isento',       cls: 'bg-zinc-500/15   text-zinc-400   border-zinc-500/30' },
-    ativo:        { label: 'Ativo',        cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
-    quitado:      { label: 'Quitado',      cls: 'bg-blue-500/10   text-blue-400   border-blue-500/20' },
-    inadimplente: { label: 'Inadimplente', cls: 'bg-red-500/15    text-red-400    border-red-500/30' },
-    renegociado:  { label: 'Renegociado',  cls: 'bg-amber-500/15  text-amber-400  border-amber-500/30' },
+    pago:         { label: 'Pago',         cls: 'bg-success/15 text-success border-success/30' },
+    pendente:     { label: 'Pendente',     cls: 'bg-info/10   text-info   border-info/20' },
+    atrasado:     { label: 'Atrasado',     cls: 'bg-danger/15    text-danger    border-danger/30' },
+    isento:       { label: 'Isento',       cls: 'bg-muted           text-muted-foreground border-border' },
+    ativo:        { label: 'Ativo',        cls: 'bg-success/15 text-success border-success/30' },
+    quitado:      { label: 'Quitado',      cls: 'bg-info/10   text-info   border-info/20' },
+    inadimplente: { label: 'Inadimplente', cls: 'bg-danger/15    text-danger    border-danger/30' },
+    renegociado:  { label: 'Renegociado',  cls: 'bg-warning/15  text-warning  border-warning/30' },
   }
-  const { label, cls } = map[status] ?? { label: status, cls: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30' }
+  const { label, cls } = map[status] ?? { label: status, cls: 'bg-muted text-muted-foreground border-border' }
   return (
     <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}>
       {label}
@@ -129,9 +129,9 @@ export default async function ExtratoPage({ params }: { params: { token: string 
         {/* Resumo numérico */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Total pago',     value: formatCurrency(totalPago),  color: 'text-emerald-400' },
+            { label: 'Total pago',     value: formatCurrency(totalPago),  color: 'text-success' },
             { label: 'Pagas',          value: `${pagas}/${totalParcelas}`, color: '' },
-            { label: 'Em atraso',      value: String(atrasadas),           color: atrasadas > 0 ? 'text-red-400' : '' },
+            { label: 'Em atraso',      value: String(atrasadas),           color: atrasadas > 0 ? 'text-danger' : '' },
           ].map(item => (
             <div key={item.label} className="rounded-xl border border-border bg-card p-3 text-center">
               <p className="text-xs text-muted-foreground">{item.label}</p>
@@ -150,7 +150,7 @@ export default async function ExtratoPage({ params }: { params: { token: string 
           </div>
           <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
             <div
-              className="h-full rounded-full bg-emerald-500 transition-all"
+              className="h-full rounded-full bg-success transition-all"
               style={{ width: `${progressoPct}%` }}
             />
           </div>

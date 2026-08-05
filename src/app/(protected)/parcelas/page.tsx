@@ -116,7 +116,7 @@ function ParcelasContent() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-semibold">{p.status === 'isento' ? 'Isento' : formatCurrency(p.valor_esperado)}</p>
-                      {p.valor_pago != null && <p className="text-xs text-emerald-400">Pago: {formatCurrency(p.valor_pago)}</p>}
+                      {p.valor_pago != null && <p className="text-xs text-success">Pago: {formatCurrency(p.valor_pago)}</p>}
                     </div>
                   </div>
                 </CardContent>

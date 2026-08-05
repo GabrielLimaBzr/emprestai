@@ -10,6 +10,7 @@ import { usePathname } from 'next/navigation'
 import { LayoutDashboard, TrendingUp, Users, CalendarDays, BarChart3, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePrivacy } from '@/contexts/privacy'
+import { ThemeToggle } from '@/components/common/ThemeToggle'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -69,6 +70,7 @@ export function AppHeader({ userEmail }: AppHeaderProps) {
           >
             {isPrivate ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
+          <ThemeToggle />
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
             <LogOut className="h-4 w-4" />
           </Button>

@@ -122,7 +122,7 @@ export function EmprestimosLista({ emprestimos }: { emprestimos: EmprestimoResum
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Juros pendentes</p>
-                      <p className={cn('font-medium tabular-nums', e.parcelas_atrasadas > 0 && 'text-red-400')}>
+                      <p className={cn('font-medium tabular-nums', e.parcelas_atrasadas > 0 && 'text-danger')}>
                         {formatCurrency(e.valor_juros_pendente)}
                         {e.parcelas_atrasadas > 0 && ` (${e.parcelas_atrasadas} atr.)`}
                       </p>
