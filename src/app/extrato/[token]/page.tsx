@@ -2,11 +2,19 @@ import { createClient } from '@supabase/supabase-js'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/date'
 import { notFound } from 'next/navigation'
+import { ChevronDown } from 'lucide-react'
 
 // O extrato precisa refletir o estado atual do contrato a cada acesso —
 // sem cache de rota nem de dados.
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+interface PagamentoExtrato {
+  id: string
+  valor: number
+  data: string
+  forma_pagamento: string | null
+}
 
 interface ParcelaExtrato {
   id: string
@@ -17,6 +25,7 @@ interface ParcelaExtrato {
   data_vencimento: string
   data_pagamento: string | null
   status: 'pendente' | 'pago' | 'atrasado' | 'isento'
+  pagamentos?: PagamentoExtrato[]
 }
 
 interface ExtratoData {
@@ -71,7 +80,6 @@ export default async function ExtratoPage({ params }: { params: { token: string 
   const totalParcelas   = lista.length
   const pagas           = lista.filter(p => p.status === 'pago').length
   const atrasadas       = lista.filter(p => p.status === 'atrasado').length
-  const totalPago       = lista.reduce((s, p) => s + (p.valor_pago ?? 0), 0)
   const proximaAberta   = lista.find(p => p.status === 'pendente' || p.status === 'atrasado')
 
   const principalPago   = lista
@@ -127,10 +135,9 @@ export default async function ExtratoPage({ params }: { params: { token: string 
         </div>
 
         {/* Resumo numérico */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'Total pago',     value: formatCurrency(totalPago),  color: 'text-success' },
-            { label: 'Pagas',          value: `${pagas}/${totalParcelas}`, color: '' },
+            { label: 'Parcelas pagas', value: `${pagas}/${totalParcelas}`, color: '' },
             { label: 'Em atraso',      value: String(atrasadas),           color: atrasadas > 0 ? 'text-danger' : '' },
           ].map(item => (
             <div key={item.label} className="rounded-xl border border-border bg-card p-3 text-center">
@@ -176,32 +183,82 @@ export default async function ExtratoPage({ params }: { params: { token: string 
             <p className="text-sm font-semibold">Parcelas ({totalParcelas})</p>
           </div>
           <div className="divide-y divide-border/60">
-            {lista.map(p => (
-              <div key={p.id} className="px-4 py-3 flex items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium">
-                      #{p.numero} — {p.tipo === 'juros' ? 'Juros' : 'Principal'}
-                    </span>
-                    <StatusBadge status={p.status} />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Venc. {formatDate(p.data_vencimento)}
-                    {p.data_pagamento && ` · Pago em ${formatDate(p.data_pagamento)}`}
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-medium tabular-nums">
-                    {p.status === 'isento' ? 'Isento' : formatCurrency(p.valor_esperado)}
-                  </p>
-                  {(p.valor_pago ?? 0) > 0 && p.valor_pago !== p.valor_esperado && (
-                    <p className="text-xs text-muted-foreground tabular-nums">
-                      {formatCurrency(p.valor_pago!)} recebido
+            {lista.map(p => {
+              const pagamentos = p.pagamentos ?? []
+              // O principal costuma ser quitado aos poucos, então vale abrir o
+              // detalhe. Em juros a linha já mostra a data do único pagamento.
+              const detalhavel = p.tipo === 'principal' && pagamentos.length > 0
+
+              const resumo = (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium">
+                        #{p.numero} — {p.tipo === 'juros' ? 'Juros' : 'Principal'}
+                      </span>
+                      <StatusBadge status={p.status} />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Venc. {formatDate(p.data_vencimento)}
+                      {p.data_pagamento && ` · Pago em ${formatDate(p.data_pagamento)}`}
+                      {detalhavel && (
+                        <span className="text-primary">
+                          {' · '}
+                          {pagamentos.length} pagamento{pagamentos.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
                     </p>
-                  )}
-                </div>
-              </div>
-            ))}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-medium tabular-nums">
+                      {p.status === 'isento' ? 'Isento' : formatCurrency(p.valor_esperado)}
+                    </p>
+                    {(p.valor_pago ?? 0) > 0 && p.valor_pago !== p.valor_esperado && (
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {formatCurrency(p.valor_pago!)} recebido
+                      </p>
+                    )}
+                  </div>
+                </>
+              )
+
+              if (!detalhavel) {
+                return (
+                  <div key={p.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                    {resumo}
+                  </div>
+                )
+              }
+
+              return (
+                <details key={p.id} className="group">
+                  <summary className="px-4 py-3 flex items-center justify-between gap-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                    {resumo}
+                  </summary>
+
+                  <div className="bg-secondary/40 px-4 py-2.5 space-y-2">
+                    {pagamentos.map(t => (
+                      <div key={t.id} className="flex items-center justify-between gap-3 text-xs">
+                        <span className="text-muted-foreground">
+                          {formatDate(t.data)}
+                          {t.forma_pagamento && ` · ${t.forma_pagamento}`}
+                        </span>
+                        <span className="font-medium text-success tabular-nums shrink-0">
+                          {formatCurrency(t.valor)}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-2 text-xs">
+                      <span className="text-muted-foreground">Falta</span>
+                      <span className="font-semibold tabular-nums shrink-0">
+                        {formatCurrency(Math.max(0, p.valor_esperado - (p.valor_pago ?? 0)))}
+                      </span>
+                    </div>
+                  </div>
+                </details>
+              )
+            })}
           </div>
         </div>
 
