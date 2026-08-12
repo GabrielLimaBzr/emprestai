@@ -84,7 +84,10 @@ export interface EmprestimoResumo {
 }
 
 export interface DashboardStats {
-  capitalEmprestado: number
+  /** Principal ainda na rua — já descontado o que voltou. */
+  capitalEmAberto: number
+  /** Principal devolvido, em regime de caixa (inclui amortizações avulsas). */
+  principalDevolvido: number
   jurosRecebidosMes: number
   jurosAReceberProximos30: number
   contratosInadimplentes: number

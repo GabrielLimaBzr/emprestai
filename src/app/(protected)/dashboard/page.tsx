@@ -44,9 +44,9 @@ export default async function DashboardPage() {
       {/* Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         <StatCard
-          title="Capital emprestado"
-          value={formatCurrency(stats.capitalEmprestado)}
-          description="Total em contratos ativos"
+          title="Capital em aberto"
+          value={formatCurrency(stats.capitalEmAberto)}
+          description={`${formatCurrency(stats.principalDevolvido)} já devolvidos`}
           icon={DollarSign}
         />
         <StatCard
