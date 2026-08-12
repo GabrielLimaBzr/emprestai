@@ -8,28 +8,56 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const supabase = createClient()
   const hoje = new Date()
 
-  // Capital emprestado (empréstimos ativos)
-  const { data: ativos } = await supabase
+  // Contratos em curso. Inadimplente e renegociado também têm capital na rua —
+  // filtrar só por 'ativo' escondia justamente o dinheiro mais em risco.
+  const { data: emCurso } = await supabase
     .from('emprestimos')
     .select('valor_principal, taxa_juros_mensal')
-    .eq('status', 'ativo')
+    .neq('status', 'quitado')
 
-  const capitalEmprestado = ativos?.reduce((s, e) => s + e.valor_principal, 0) ?? 0
+  // Capital ainda na rua sai das parcelas, não de emprestimos.valor_principal:
+  // uma amortização já reduz valor_principal E registra a transação, então
+  // descontar as transações do valor do contrato contaria a devolução 2x.
+  // O cronograma é a fonte consistente — sincronizarCronograma o mantém alinhado.
+  const { data: parcelasPrincipal } = await supabase
+    .from('parcelas')
+    .select('valor_esperado, valor_pago')
+    .eq('tipo', 'principal')
 
-  // Rentabilidade média
-  const totalCapital = capitalEmprestado || 1
-  const rentabilidadeMedia = (ativos?.reduce((s, e) => s + e.taxa_juros_mensal * e.valor_principal, 0) ?? 0) / totalCapital
+  const capitalEmAberto = (parcelasPrincipal ?? []).reduce(
+    (s, p) => s + Math.max(0, p.valor_esperado - (p.valor_pago ?? 0)),
+    0
+  )
 
-  // Juros recebidos no mês atual
-  const mesAtual = hoje.toISOString().slice(0, 7)
+  // Principal já devolvido: regime de caixa, incluindo amortizações avulsas
+  // (que não têm parcela vinculada). Estornos de principal são descontados.
+  const { data: trxPrincipal } = await supabase
+    .from('transacoes')
+    .select('valor, tipo, parcela:parcelas(tipo)')
+    .in('tipo', ['principal_recebido', 'estorno'])
+
+  const principalDevolvido = (trxPrincipal ?? []).reduce((s, t: any) => {
+    if (t.tipo === 'principal_recebido') return s + t.valor
+    return t.parcela?.tipo === 'principal' ? s - t.valor : s
+  }, 0)
+
+  // Rentabilidade média ponderada pelo principal contratado
+  const totalCapital = (emCurso ?? []).reduce((s, e) => s + e.valor_principal, 0) || 1
+  const rentabilidadeMedia =
+    (emCurso?.reduce((s, e) => s + e.taxa_juros_mensal * e.valor_principal, 0) ?? 0) / totalCapital
+
+  // Juros recebidos no mês atual, líquidos de estorno
   const { data: transacoesMes } = await supabase
     .from('transacoes')
-    .select('valor')
-    .eq('tipo', 'juros_recebido')
+    .select('valor, tipo, parcela:parcelas(tipo)')
+    .in('tipo', ['juros_recebido', 'estorno'])
     .gte('data', startOfMonth())
     .lte('data', endOfMonth())
 
-  const jurosRecebidosMes = transacoesMes?.reduce((s, t) => s + t.valor, 0) ?? 0
+  const jurosRecebidosMes = (transacoesMes ?? []).reduce((s, t: any) => {
+    if (t.tipo === 'juros_recebido') return s + t.valor
+    return t.parcela?.tipo === 'juros' ? s - t.valor : s
+  }, 0)
 
   // Juros a receber nos próximos 30 dias
   const em30Dias = new Date()
@@ -51,7 +79,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     .eq('status', 'inadimplente')
 
   return {
-    capitalEmprestado,
+    capitalEmAberto,
+    principalDevolvido,
     jurosRecebidosMes,
     jurosAReceberProximos30,
     contratosInadimplentes: contratosInadimplentes ?? 0,

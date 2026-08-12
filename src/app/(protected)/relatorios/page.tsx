@@ -22,6 +22,7 @@ export default async function RelatoriosPage() {
     { data: parcelasPendentes },
     { data: parcelasAtrasadas },
     { data: parcelasDoMes },
+    { data: transacoesJuros },
   ] = await Promise.all([
     supabase.from('emprestimos').select('*, tomador:tomadores(nome)').eq('status', 'ativo'),
     supabase.from('transacoes').select('*, emprestimo:emprestimos(tomador:tomadores(nome))').gte('data', inicioMes).lte('data', fimMes).neq('tipo', 'estorno'),
@@ -34,6 +35,10 @@ export default async function RelatoriosPage() {
       .gte('data_vencimento', inicioMes)
       .lte('data_vencimento', fimMes)
       .order('data_vencimento'),
+    supabase
+      .from('transacoes')
+      .select('valor, tipo, data, parcela:parcelas(tipo)')
+      .in('tipo', ['juros_recebido', 'estorno']),
   ])
 
   const ativos = emprestimosAtivos as Emprestimo[] ?? []
@@ -62,6 +67,19 @@ export default async function RelatoriosPage() {
 
   const diasDeAtraso = (dataVencimento: string) =>
     Math.floor((hoje.getTime() - new Date(dataVencimento).getTime()) / 86400000)
+
+  // Juros efetivamente ganhos, líquidos de estorno. O estorno não guarda o tipo
+  // do que reverteu, então ele é atribuído pelo tipo da parcela vinculada.
+  const somaJuros = (linhas: any[]) =>
+    linhas.reduce((s, t) => {
+      if (t.tipo === 'juros_recebido') return s + t.valor
+      return t.parcela?.tipo === 'juros' ? s - t.valor : s
+    }, 0)
+
+  const jurosTodos     = (transacoesJuros ?? []) as any[]
+  const jurosTotal     = somaJuros(jurosTodos)
+  const anoAtual       = String(hoje.getFullYear())
+  const jurosNoAno     = somaJuros(jurosTodos.filter(t => t.data.startsWith(anoAtual)))
 
   return (
     <div className="space-y-6">
@@ -293,7 +311,22 @@ export default async function RelatoriosPage() {
         {/* Carteira */}
         <TabsContent value="carteira" className="space-y-4 mt-4">
           <h2 className="font-semibold">Análise da carteira ativa</h2>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card>
+              <CardContent className="p-4 space-y-1">
+                <p className="text-xs text-muted-foreground">Juros recebidos — total</p>
+                <p className="text-2xl font-bold text-success tabular-nums">{formatCurrency(jurosTotal)}</p>
+                <p className="text-xs text-muted-foreground">desde o início, líquido de estornos</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 space-y-1">
+                <p className="text-xs text-muted-foreground">Juros recebidos — {anoAtual}</p>
+                <p className="text-2xl font-bold text-success tabular-nums">{formatCurrency(jurosNoAno)}</p>
+                <p className="text-xs text-muted-foreground">no ano corrente</p>
+              </CardContent>
+            </Card>
             <Card>
               <CardContent className="p-4 space-y-1">
                 <p className="text-xs text-muted-foreground">Contratos ativos</p>
