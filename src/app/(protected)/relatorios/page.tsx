@@ -1,6 +1,8 @@
 import Link from 'next/link'
-import { ChevronDown } from 'lucide-react'
+import { headers } from 'next/headers'
+import { ChevronDown, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { linkWhatsApp, mensagemCobranca } from '@/utils/whatsapp'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency, formatPercent } from '@/utils/currency'
 import { formatDate, formatMonthYear } from '@/utils/date'
@@ -27,7 +29,7 @@ export default async function RelatoriosPage() {
     supabase.from('emprestimos').select('*, tomador:tomadores(nome)').eq('status', 'ativo'),
     supabase.from('transacoes').select('*, emprestimo:emprestimos(tomador:tomadores(nome))').gte('data', inicioMes).lte('data', fimMes).neq('tipo', 'estorno'),
     supabase.from('parcelas').select('*').eq('status', 'pendente').eq('tipo', 'juros'),
-    supabase.from('parcelas').select('*, emprestimo:emprestimos(id, tomador:tomadores(nome))').eq('status', 'atrasado'),
+    supabase.from('parcelas').select('*, emprestimo:emprestimos(id, token_extrato, tomador:tomadores(nome, telefone))').eq('status', 'atrasado'),
     supabase
       .from('parcelas')
       .select('*, emprestimo:emprestimos(id, tomador:tomadores(nome))')
@@ -75,6 +77,26 @@ export default async function RelatoriosPage() {
       if (t.tipo === 'juros_recebido') return s + t.valor
       return t.parcela?.tipo === 'juros' ? s - t.valor : s
     }, 0)
+
+  // Cobrança pronta no WhatsApp, já com o link do extrato. Só aparece quando
+  // o tomador tem telefone cadastrado e o contrato tem token.
+  const cabecalhos = headers()
+  const origem = `${cabecalhos.get('x-forwarded-proto') ?? 'https'}://${cabecalhos.get('host')}`
+
+  const linkCobranca = (p: any) => {
+    const tomador = p.emprestimo?.tomador
+    const token = p.emprestimo?.token_extrato
+    if (!tomador?.telefone || !token) return null
+    return linkWhatsApp(
+      tomador.telefone,
+      mensagemCobranca(
+        tomador.nome,
+        formatCurrency(saldoAberto(p)),
+        formatDate(p.data_vencimento),
+        `${origem}/extrato/${token}`
+      )
+    )
+  }
 
   const jurosTodos     = (transacoesJuros ?? []) as any[]
   const jurosTotal     = somaJuros(jurosTodos)
@@ -289,16 +311,31 @@ export default async function RelatoriosPage() {
               ) : (
                 <div className="divide-y divide-border">
                   {parcelasAtrasadas.map((p: any) => {
-                    const diasAtraso = Math.floor((Date.now() - new Date(p.data_vencimento).getTime()) / 86400000)
+                    const cobranca = linkCobranca(p)
                     return (
                       <div key={p.id} className="flex items-center justify-between px-3 sm:px-6 py-3 gap-3">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{p.emprestimo?.tomador?.nome}</p>
                           <p className="text-xs text-muted-foreground">
-                            Venc. {formatDate(p.data_vencimento)} · <span className="text-danger">{diasAtraso} dias de atraso</span>
+                            Venc. {formatDate(p.data_vencimento)} ·{' '}
+                            <span className="text-danger">{diasDeAtraso(p.data_vencimento)} dias de atraso</span>
                           </p>
                         </div>
-                        <p className="font-medium text-danger shrink-0 tabular-nums">{formatCurrency(p.valor_esperado)}</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <p className="font-medium text-danger tabular-nums">{formatCurrency(saldoAberto(p))}</p>
+                          {cobranca && (
+                            <a
+                              href={cobranca}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Cobrar no WhatsApp"
+                              className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-2 py-1 text-xs font-medium text-success transition-colors hover:bg-success/20"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Cobrar</span>
+                            </a>
+                          )}
+                        </div>
                       </div>
                     )
                   })}

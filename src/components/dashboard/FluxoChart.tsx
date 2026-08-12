@@ -2,19 +2,33 @@
 
 import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
-import { Bar } from 'react-chartjs-2'
+import { Bar, Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
+  Filler,
   Title,
   Tooltip,
   Legend,
 } from 'chart.js'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Filler,
+  Title,
+  Tooltip,
+  Legend
+)
 
 interface FluxoChartProps {
   data: { mes: string; recebido: number; esperado: number }[]
@@ -66,11 +80,23 @@ function useCoresGrafico(): CoresGrafico {
   return cores
 }
 
+type Visao = 'mensal' | 'acumulado'
+
 export function FluxoChart({ data }: FluxoChartProps) {
   const cores = useCoresGrafico()
+  const [visao, setVisao] = useState<Visao>('mensal')
 
-  const chartData = {
-    labels: data.map((d) => d.mes),
+  const rotulos = data.map((d) => d.mes)
+
+  // Acumulado responde "quanto essa carteira já rendeu", que as barras mensais
+  // não mostram — cada barra é um mês isolado.
+  const acumulado = data.reduce<number[]>((serie, d, i) => {
+    serie.push((serie[i - 1] ?? 0) + d.recebido)
+    return serie
+  }, [])
+
+  const dadosMensal = {
+    labels: rotulos,
     datasets: [
       {
         label: 'Esperado',
@@ -87,6 +113,23 @@ export function FluxoChart({ data }: FluxoChartProps) {
         borderColor: cores.barra,
         borderWidth: 1,
         borderRadius: 4,
+      },
+    ],
+  }
+
+  const dadosAcumulado = {
+    labels: rotulos,
+    datasets: [
+      {
+        label: 'Juros acumulados',
+        data: acumulado,
+        borderColor: cores.barra,
+        backgroundColor: cores.barraFraca,
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: cores.barra,
+        tension: 0.3,
+        fill: true,
       },
     ],
   }
@@ -123,10 +166,33 @@ export function FluxoChart({ data }: FluxoChartProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Fluxo de caixa mensal</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base">
+            {visao === 'mensal' ? 'Juros por mês' : 'Juros acumulados'}
+          </CardTitle>
+          <div className="flex gap-1 rounded-md bg-secondary p-0.5">
+            {([['mensal', 'Mensal'], ['acumulado', 'Acumulado']] as const).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setVisao(id)}
+                className={cn(
+                  'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                  visao === id
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
-        <Bar data={chartData} options={options as any} />
+        {visao === 'mensal'
+          ? <Bar data={dadosMensal} options={options as any} />
+          : <Line data={dadosAcumulado} options={options as any} />}
       </CardContent>
     </Card>
   )

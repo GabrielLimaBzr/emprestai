@@ -26,13 +26,38 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient()
 
+  const hojeISO = new Date().toISOString().split('T')[0]
+
+  // O status de atraso é função da data, mas nada o atualizava sozinho: só a
+  // sincronização manual em Configurações. Sem isso a parcela vencia e seguia
+  // "pendente" na lista, no dashboard, nos relatórios e no extrato do cliente
+  // — e este próprio cron lê 'atrasado' para alertar, então avisava tarde.
+  const [vencidas, reagendadas] = await Promise.all([
+    supabase
+      .from('parcelas')
+      .update({ status: 'atrasado' })
+      .eq('status', 'pendente')
+      .lt('data_vencimento', hojeISO)
+      .select('id'),
+    // Simétrico: se o vencimento foi empurrado para frente (edição de contrato,
+    // renegociação), a parcela deixa de estar em atraso.
+    supabase
+      .from('parcelas')
+      .update({ status: 'pendente' })
+      .eq('status', 'atrasado')
+      .gte('data_vencimento', hojeISO)
+      .select('id'),
+  ])
+
+  const statusSincronizados = (vencidas.data?.length ?? 0) + (reagendadas.data?.length ?? 0)
+
   // Buscar todas as subscriptions agrupadas por user_id
   const { data: allSubs, error } = await supabase
     .from('push_subscriptions')
     .select('user_id, endpoint, p256dh, auth') as { data: PushSub[] | null; error: unknown }
 
   if (error) return Response.json({ error: String(error) }, { status: 500 })
-  if (!allSubs?.length) return Response.json({ ok: true, enviadas: 0 })
+  if (!allSubs?.length) return Response.json({ ok: true, enviadas: 0, statusSincronizados })
 
   // Agrupar subscriptions por usuário
   const porUsuario = new Map<string, PushSub[]>()
@@ -140,5 +165,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return Response.json({ ok: true, enviadas: totalEnviadas, usuarios: porUsuario.size })
+  return Response.json({ ok: true, enviadas: totalEnviadas, usuarios: porUsuario.size, statusSincronizados })
 }

@@ -113,7 +113,7 @@ export async function getAlertasInadimplencia() {
 
   const { data } = await supabase
     .from('parcelas')
-    .select('*, emprestimo:emprestimos(id, valor_principal, tomador:tomadores(nome))')
+    .select('*, emprestimo:emprestimos(id, valor_principal, token_extrato, tomador:tomadores(nome, telefone))')
     .eq('status', 'atrasado')
     .lt('data_vencimento', limite.toISOString().split('T')[0])
     .order('data_vencimento')
@@ -122,40 +122,55 @@ export async function getAlertasInadimplencia() {
   return data ?? []
 }
 
-export async function getFluxoMensal() {
+export async function getFluxoMensal(meses = 12) {
   const supabase = createClient()
 
-  // Últimos 6 meses
-  const meses: { mes: string; recebido: number; esperado: number }[] = []
+  // Baldes montados por aritmética de ano/mês. Repetir setMonth() sobre a data
+  // de hoje estoura em meses curtos — dia 31 menos um mês cai no mês seguinte.
+  const agora = new Date()
+  const baldes = new Map<string, { mes: string; recebido: number; esperado: number }>()
 
-  for (let i = 5; i >= 0; i--) {
-    const data = new Date()
-    data.setMonth(data.getMonth() - i)
-    const inicio = startOfMonth(data)
-    const fim = endOfMonth(data)
-    const mesLabel = data.toLocaleString('pt-BR', { month: 'short', year: '2-digit' })
-
-    const [{ data: recebido }, { data: esperado }] = await Promise.all([
-      supabase
-        .from('transacoes')
-        .select('valor')
-        .eq('tipo', 'juros_recebido')
-        .gte('data', inicio)
-        .lte('data', fim),
-      supabase
-        .from('parcelas')
-        .select('valor_esperado')
-        .eq('tipo', 'juros')
-        .gte('data_vencimento', inicio)
-        .lte('data_vencimento', fim),
-    ])
-
-    meses.push({
-      mes: mesLabel,
-      recebido: recebido?.reduce((s, t) => s + t.valor, 0) ?? 0,
-      esperado: esperado?.reduce((s, p) => s + p.valor_esperado, 0) ?? 0,
+  for (let i = meses - 1; i >= 0; i--) {
+    const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1)
+    const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    baldes.set(chave, {
+      mes: d.toLocaleString('pt-BR', { month: 'short', year: '2-digit' }),
+      recebido: 0,
+      esperado: 0,
     })
   }
 
-  return meses
+  const desde = `${Array.from(baldes.keys())[0]}-01`
+  const ate = endOfMonth()
+
+  // Duas consultas cobrindo a janela inteira. Antes era um par por mês, com
+  // await dentro do laço — 12 idas ao banco em série só para desenhar 6 barras.
+  const [{ data: transacoes }, { data: parcelas }] = await Promise.all([
+    supabase
+      .from('transacoes')
+      .select('valor, tipo, data, parcela:parcelas(tipo)')
+      .in('tipo', ['juros_recebido', 'estorno'])
+      .gte('data', desde)
+      .lte('data', ate),
+    supabase
+      .from('parcelas')
+      .select('valor_esperado, data_vencimento')
+      .eq('tipo', 'juros')
+      .gte('data_vencimento', desde)
+      .lte('data_vencimento', ate),
+  ])
+
+  for (const t of (transacoes ?? []) as any[]) {
+    const balde = baldes.get(t.data.slice(0, 7))
+    if (!balde) continue
+    if (t.tipo === 'juros_recebido') balde.recebido += t.valor
+    else if (t.parcela?.tipo === 'juros') balde.recebido -= t.valor
+  }
+
+  for (const p of parcelas ?? []) {
+    const balde = baldes.get(p.data_vencimento.slice(0, 7))
+    if (balde) balde.esperado += p.valor_esperado
+  }
+
+  return Array.from(baldes.values())
 }
