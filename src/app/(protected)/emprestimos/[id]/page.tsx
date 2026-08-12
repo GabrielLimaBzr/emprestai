@@ -40,9 +40,10 @@ import { formatDate } from '@/utils/date'
 import { toast } from '@/hooks/use-toast'
 import {
   ArrowLeft, CreditCard, RotateCcw, Loader2, Pencil, Trash2,
-  RefreshCw, PencilLine, X, Repeat2, Share2,
+  RefreshCw, PencilLine, X, Repeat2, Share2, MessageCircle,
 } from 'lucide-react'
 import Link from 'next/link'
+import { linkWhatsApp, mensagemExtrato } from '@/utils/whatsapp'
 import type { Emprestimo, Parcela, Transacao } from '@/types'
 
 // ─── Schema edição do contrato ───────────────────────────────────────────────
@@ -405,6 +406,32 @@ export default function EmprestimoDetalhePage() {
                 >
                   <Share2 className="h-3.5 w-3.5 sm:mr-1.5" />
                   <span className="hidden sm:inline">Extrato</span>
+                </Button>
+              )}
+
+              {emprestimo.token_extrato && emprestimo.tomador?.telefone && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}/extrato/${emprestimo.token_extrato}`
+                    const link = linkWhatsApp(
+                      emprestimo.tomador!.telefone,
+                      mensagemExtrato(emprestimo.tomador!.nome, url)
+                    )
+                    if (!link) {
+                      toast({
+                        title: 'Telefone inválido',
+                        description: 'Confira o telefone do tomador no cadastro.',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
+                    window.open(link, '_blank', 'noopener')
+                  }}
+                >
+                  <MessageCircle className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">WhatsApp</span>
                 </Button>
               )}
 

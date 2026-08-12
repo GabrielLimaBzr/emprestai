@@ -14,8 +14,13 @@ import {
 } from 'lucide-react'
 import { formatCurrency, formatPercent } from '@/utils/currency'
 import Link from 'next/link'
+import { headers } from 'next/headers'
 
 export default async function DashboardPage() {
+  // Origem absoluta para montar o link do extrato dentro da mensagem de cobrança.
+  const cabecalhos = headers()
+  const origem = `${cabecalhos.get('x-forwarded-proto') ?? 'https'}://${cabecalhos.get('host')}`
+
   const prefs = await getPreferencias()
   const [stats, proximosVencimentos, alertas, fluxo] = await Promise.all([
     getDashboardStats(),
@@ -90,7 +95,7 @@ export default async function DashboardPage() {
       </div>
 
       {alertas.length > 0 && (
-        <AlertasInadimplencia parcelas={alertas} />
+        <AlertasInadimplencia parcelas={alertas} origem={origem} />
       )}
     </div>
   )

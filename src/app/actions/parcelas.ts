@@ -478,14 +478,26 @@ export async function sincronizarStatusParcelas() {
   const user = await getUser()
   const hoje = new Date().toISOString().split('T')[0]
 
-  const { error } = await supabase
-    .from('parcelas')
-    .update({ status: 'atrasado' })
-    .eq('user_id', user.id)
-    .eq('status', 'pendente')
-    .lt('data_vencimento', hoje)
+  const [vencidas, reagendadas] = await Promise.all([
+    supabase
+      .from('parcelas')
+      .update({ status: 'atrasado' })
+      .eq('user_id', user.id)
+      .eq('status', 'pendente')
+      .lt('data_vencimento', hoje),
+    // Simétrico: vencimento empurrado para frente tira a parcela do atraso.
+    supabase
+      .from('parcelas')
+      .update({ status: 'pendente' })
+      .eq('user_id', user.id)
+      .eq('status', 'atrasado')
+      .gte('data_vencimento', hoje),
+  ])
 
-  if (error) throw error
+  if (vencidas.error) throw vencidas.error
+  if (reagendadas.error) throw reagendadas.error
+
   revalidatePath('/dashboard')
   revalidatePath('/parcelas')
+  revalidatePath('/emprestimos')
 }

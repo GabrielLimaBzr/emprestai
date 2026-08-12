@@ -113,7 +113,7 @@ export async function getAlertasInadimplencia() {
 
   const { data } = await supabase
     .from('parcelas')
-    .select('*, emprestimo:emprestimos(id, valor_principal, tomador:tomadores(nome))')
+    .select('*, emprestimo:emprestimos(id, valor_principal, token_extrato, tomador:tomadores(nome, telefone))')
     .eq('status', 'atrasado')
     .lt('data_vencimento', limite.toISOString().split('T')[0])
     .order('data_vencimento')
