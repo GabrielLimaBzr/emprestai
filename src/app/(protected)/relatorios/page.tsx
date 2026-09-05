@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { headers } from 'next/headers'
-import { ChevronDown, MessageCircle } from 'lucide-react'
+import { ChevronDown, Download, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { linkWhatsApp, mensagemCobranca } from '@/utils/whatsapp'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -105,9 +105,20 @@ export default async function RelatoriosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Relatórios</h1>
-        <p className="text-muted-foreground text-sm">Análise completa da sua carteira</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Relatórios</h1>
+          <p className="text-muted-foreground text-sm">Análise completa da sua carteira</p>
+        </div>
+        <a
+          href="/api/exportar"
+          download
+          className="inline-flex shrink-0 items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium transition-colors hover:border-primary/50 hover:text-primary"
+          title="Baixa a carteira completa em Markdown, pronta para analisar com IA"
+        >
+          <Download className="h-4 w-4" />
+          Exportar
+        </a>
       </div>
 
       <Tabs defaultValue="extrato">
