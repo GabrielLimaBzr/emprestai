@@ -81,6 +81,8 @@ export interface EmprestimoResumo {
   valor_juros_pendente: number
   total_recebido: number
   parcelas_atrasadas: number
+  /** Principal ainda na rua, a partir do saldo das parcelas de principal. */
+  principal_restante: number
 }
 
 export interface DashboardStats {

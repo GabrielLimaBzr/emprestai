@@ -111,6 +111,11 @@ export function EmprestimosLista({ emprestimos }: { emprestimos: EmprestimoResum
                     <div>
                       <p className="text-xs text-muted-foreground">Principal</p>
                       <p className="font-medium tabular-nums">{formatCurrency(e.valor_principal)}</p>
+                      <p className="text-xs tabular-nums text-muted-foreground">
+                        {e.principal_restante > 0
+                          ? `Falta ${formatCurrency(e.principal_restante)}`
+                          : 'Principal quitado'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Taxa</p>

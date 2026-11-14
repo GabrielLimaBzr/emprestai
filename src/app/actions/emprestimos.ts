@@ -29,14 +29,35 @@ export async function getEmprestimos() {
 export async function getEmprestimosResumo() {
   const supabase = createClient()
   const user = await getUser()
-  const { data, error } = await supabase
-    .from('vw_emprestimos_resumo')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('data_vencimento')
+  const [{ data, error }, { data: parcelasPrincipal, error: parcErr }] = await Promise.all([
+    supabase
+      .from('vw_emprestimos_resumo')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('data_vencimento'),
+    supabase
+      .from('parcelas')
+      .select('emprestimo_id, valor_esperado, valor_pago')
+      .eq('user_id', user.id)
+      .eq('tipo', 'principal'),
+  ])
 
   if (error) throw error
-  return data as EmprestimoResumo[]
+  if (parcErr) throw parcErr
+
+  // Saldo do principal vem do cronograma, não de valor_principal menos
+  // transações: uma amortização já reduz valor_principal E registra a
+  // transação, então subtrair de novo contaria a devolução duas vezes.
+  const restantePor = new Map<string, number>()
+  for (const p of parcelasPrincipal ?? []) {
+    const saldo = Math.max(0, p.valor_esperado - (p.valor_pago ?? 0))
+    restantePor.set(p.emprestimo_id, (restantePor.get(p.emprestimo_id) ?? 0) + saldo)
+  }
+
+  return (data ?? []).map((e) => ({
+    ...e,
+    principal_restante: restantePor.get(e.id) ?? 0,
+  })) as EmprestimoResumo[]
 }
 
 export async function getEmprestimoById(id: string) {
